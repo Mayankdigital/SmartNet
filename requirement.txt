@@ -1,0 +1,3 @@
+pip install ping3 numpy
+pip install firebase-admin
+pip install websockets
