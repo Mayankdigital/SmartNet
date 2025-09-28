@@ -1,7 +1,7 @@
-// Global Application State
+
 const appState = {
     activeProfile: 'work',
-    networkHealth: 94,
+    networkHealth: 94, 
     activeApps: [
         { name: 'Zoom', icon: '🎥', usage: 60, protocol: 'UDP', pid: 1234, download: 245, upload: 89 },
         { name: 'Chrome', icon: '🌐', usage: 30, protocol: 'TCP', pid: 5678, download: 1200, upload: 156 },
@@ -9,7 +9,7 @@ const appState = {
         { name: 'Discord', icon: '💬', usage: 25, protocol: 'UDP', pid: 3456, download: 180, upload: 45 },
         { name: 'Steam', icon: '🎮', usage: 40, protocol: 'TCP', pid: 7890, download: 850, upload: 23 }
     ],
-    processes: [],
+    processes: [],  
     downloadQueue: [
         { name: 'Windows Update KB5028185', size: '1.2 GB', time: '02:00 AM', priority: 'HIGH' },
         { name: 'YouTube - Machine Learning Playlist', size: '3.8 GB', time: '01:30 AM', priority: 'MED' },
@@ -56,11 +56,118 @@ const elements = {
 document.addEventListener('DOMContentLoaded', function() {
     initializeNavigation();
     initializeComponents();
-    startRealTimeUpdates();
+    
+    // --- START: WebSocket Integration ---
+    // Use the WebSocket to feed real-time data
+    connectWebSocketMonitor();
+    
+    // Continue with the rest of the initialization
     setupEventListeners();
     
     console.log('🚀 Adaptive Network Scheduler initialized successfully!');
 });
+
+// =========================================================================
+// !!! NEW: WebSocket Real-Time Monitoring Functions !!!
+// =========================================================================
+
+function connectWebSocketMonitor() {
+    // The server runs on ws://127.0.0.1:8765
+    const ws = new WebSocket("ws://127.0.0.1:8765"); 
+    
+    ws.onopen = () => {
+        console.log("🟢 WebSocket connection established for network monitoring.");
+        showNotification('Real-time monitor connected!', 'info');
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            updateRealTimeMetrics(data);
+        } catch (e) {
+            console.error("Failed to parse WebSocket message:", e);
+        }
+    };
+
+    ws.onclose = () => {
+        console.warn("🔴 WebSocket connection closed. Attempting to reconnect in 5s...");
+        // Simple auto-reconnect logic
+        setTimeout(connectWebSocketMonitor, 5000); 
+    };
+
+    ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+    };
+}
+
+function updateRealTimeMetrics(data) {
+    const { latency, jitter, loss, health, download_speed, upload_speed } = data;
+
+    // --- 1. Update Global Health (Dashboard) ---
+    if (elements.healthPercentage) {
+        elements.healthPercentage.textContent = `${health}%`;
+        elements.healthPercentage.style.color = health > 85 ? '#00ff00' : health > 50 ? '#ffff00' : '#ff0040';
+    }
+
+    if (elements.networkLatency) {
+        elements.networkLatency.textContent = `Online • ${latency}ms`;
+    }
+    
+    // Update appState's health
+    appState.networkHealth = health;
+
+    // --- 2. Update Stats (Dashboard & Protocol Section) ---
+    const latencyStat = document.getElementById('latency-stat');
+    const jitterStat = document.getElementById('jitter-stat');
+    const lossStat = document.getElementById('loss-stat');
+    const totalDownload = document.getElementById('download-stat');
+    const totalUpload = document.getElementById('upload-stat');
+    
+    if (latencyStat) latencyStat.textContent = `${latency}ms`;
+    if (jitterStat) jitterStat.textContent = `${jitter}ms`;
+    if (lossStat) lossStat.textContent = `${loss}%`;
+    
+    if (totalDownload) totalDownload.textContent = `${download_speed} Mbps`;
+    if (totalUpload) totalUpload.textContent = `${upload_speed} Mbps`;
+    
+    // Update Protocol Engine conditions (replaces updateNetworkConditions)
+    const conditions = {
+        latency: { value: latency, unit: 'ms', threshold: 50 },
+        jitter: { value: jitter, unit: 'ms', threshold: 5 },
+        loss: { value: loss, unit: '%', threshold: 1 }
+    };
+    
+    Object.entries(conditions).forEach(([key, d]) => {
+        const valueElement = document.getElementById(`condition-${key}`);
+        const barElement = document.getElementById(`${key}-bar`);
+        
+        // Dynamic Color Logic
+        let color = '#00ff00';
+        if (d.value > d.threshold * 2) {
+            color = '#ff0040'; // Bad
+        } else if (d.value > d.threshold) {
+            color = '#ffff00'; // Warning
+        }
+        
+        if (valueElement) {
+            valueElement.textContent = `${d.value}${d.unit}`;
+            valueElement.style.color = color;
+        }
+        
+        if (barElement) {
+            // Inverting the value for the bar fill (lower latency/loss/jitter is better)
+            const fillValue = (1 - Math.min(1, d.value / (d.threshold * 5))) * 100; 
+            barElement.style.width = `${fillValue}%`;
+        }
+    });
+
+    // --- 3. Update Bandwidth Simulation ---
+    updateBandwidthData(); // Keep this for app-level bandwidth simulation
+}
+
+// =========================================================================
+// !!! END: WebSocket Real-Time Monitoring Functions !!!
+// =========================================================================
 
 // Navigation System
 function initializeNavigation() {
@@ -118,9 +225,9 @@ function loadSectionContent(sectionId) {
 
 // Dashboard Updates
 function updateDashboard() {
-    // Update network health
+    // Update network health (already handled by WebSocket listener)
     if (elements.healthPercentage) {
-        elements.healthPercentage.textContent = `${appState.networkHealth}%`;
+        elements.healthPercentage.textContent = `${Math.floor(appState.networkHealth)}%`;
     }
     
     // Update active apps list
@@ -143,16 +250,18 @@ function updateDashboard() {
 }
 
 function updateDashboardStats() {
+    // Note: latency, jitter, loss are updated by updateRealTimeMetrics now
     const stats = {
         'data-used': `${(Math.random() * 5 + 1).toFixed(1)} GB`,
         'time-saved': `${Math.floor(Math.random() * 60 + 30)} min`,
         'apps-managed': appState.activeApps.length,
-        'profile-switches': Math.floor(Math.random() * 5 + 1)
+        'profile-switches': Math.floor(Math.random() * 5 + 1),
+        // download-stat and upload-stat are now updated by WebSocket
     };
     
     Object.entries(stats).forEach(([id, value]) => {
         const element = document.getElementById(id);
-        if (element) element.textContent = value;
+        if (element && id !== 'download-stat' && id !== 'upload-stat') element.textContent = value;
     });
 }
 
@@ -171,7 +280,7 @@ function updateMonitor() {
                 <div style="text-align: right;">
                     <span class="protocol-badge protocol-${app.protocol.toLowerCase()}">${app.protocol}</span>
                     <div style="font-size: 12px; margin-top: 5px;">
-                        ↓ ${app.download} KB/s ↑ ${app.upload} KB/s
+                        ↓ ${app.download.toFixed(0)} KB/s ↑ ${app.upload.toFixed(0)} KB/s
                     </div>
                 </div>
             </div>
@@ -251,32 +360,16 @@ function updateProtocolEngine() {
         `).join('');
     }
     
-    updateNetworkConditions();
-}
-
-function updateNetworkConditions() {
-    const conditions = {
-        latency: { value: Math.floor(Math.random() * 20 + 10), unit: 'ms', color: '#00ff00' },
-        jitter: { value: Math.floor(Math.random() * 5 + 1), unit: 'ms', color: '#ffff00' },
-        loss: { value: (Math.random() * 0.5).toFixed(1), unit: '%', color: '#00ff00' },
-        stability: { value: 'Excellent', unit: '', color: '#00ff00' }
-    };
-    
-    Object.entries(conditions).forEach(([key, data]) => {
-        const valueElement = document.getElementById(`condition-${key}`);
-        const barElement = document.getElementById(`${key}-bar`);
-        
-        if (valueElement) {
-            valueElement.textContent = `${data.value}${data.unit}`;
-            valueElement.style.color = data.color;
-        }
-        
-        if (barElement) {
-            const percentage = key === 'stability' ? 90 : Math.max(10, 100 - parseFloat(data.value) * 10);
-            barElement.style.width = `${percentage}%`;
-        }
+    // Call the function to update the bars with the latest WebSocket data
+    updateRealTimeMetrics({ 
+        latency: document.getElementById('latency-stat').textContent.replace('ms', ''),
+        jitter: document.getElementById('jitter-stat').textContent.replace('ms', ''),
+        loss: document.getElementById('loss-stat').textContent.replace('%', ''),
+        health: appState.networkHealth 
     });
 }
+
+// REMOVED: updateNetworkConditions - its logic is now inside updateRealTimeMetrics
 
 // Scheduler Updates
 function updateScheduler() {
@@ -438,6 +531,7 @@ function setupSliderListeners() {
             const value = parseInt(e.target.value);
             const valueSpan = e.target.parentNode.querySelector('.download-value');
             if (valueSpan) {
+                // Update display value based on slider
                 valueSpan.textContent = `${(value * 50 / 100).toFixed(1)} MB/s`;
             }
             appState.activeApps[appIndex].usage = value;
@@ -450,6 +544,7 @@ function setupSliderListeners() {
             const value = parseInt(e.target.value);
             const valueSpan = e.target.parentNode.querySelector('.upload-value');
             if (valueSpan) {
+                // Update display value based on slider
                 valueSpan.textContent = `${(value * 20 / 100).toFixed(1)} MB/s`;
             }
             appState.activeApps[appIndex].upload = value * 2;
@@ -516,13 +611,15 @@ function handleProfileChange(e) {
 function handleQuickAction(action) {
     const actions = {
         gaming: () => {
-            appState.activeProfile = 'gaming';
-            elements.profileSelector.value = 'gaming';
+            // Find and switch to 'Gaming Profile'
+            const gamingIndex = appState.profiles.findIndex(p => p.name === 'Gaming Profile');
+            if (gamingIndex !== -1) switchProfile(gamingIndex);
             showNotification('Gaming mode activated');
         },
         work: () => {
-            appState.activeProfile = 'work';
-            elements.profileSelector.value = 'work';
+             // Find and switch to 'Work Profile'
+            const workIndex = appState.profiles.findIndex(p => p.name === 'Work Profile');
+            if (workIndex !== -1) switchProfile(workIndex);
             showNotification('Work mode activated');
         },
         sleep: () => {
@@ -577,7 +674,7 @@ function switchProfile(profileIndex) {
     
     // Activate selected profile
     appState.profiles[profileIndex].active = true;
-    appState.activeProfile = appState.profiles[profileIndex].name.toLowerCase().replace(' profile', '');
+    appState.activeProfile = appState.profiles[profileIndex].name.toLowerCase().replace(' profile', '').replace(' ', '-');
     
     updateProfiles();
     showNotification(`Switched to ${appState.profiles[profileIndex].name}`);
@@ -636,57 +733,32 @@ function formatSeconds(seconds) {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Real-time Updates
-function startRealTimeUpdates() {
-    // Update network stats every 3 seconds
-    setInterval(() => {
-        updateNetworkStats();
-        updateBandwidthData();
-    }, 3000);
-    
-    // Update process data every 5 seconds
-    setInterval(() => {
-        updateProcessData();
-    }, 5000);
-}
+// Real-time Updates (Now only for simulating app-level data)
+// REMOVED: startRealTimeUpdates - WebSocket handles the main metrics
 
-function updateNetworkStats() {
-    // Simulate network health fluctuations
-    appState.networkHealth = Math.max(85, Math.min(98, appState.networkHealth + (Math.random() - 0.5) * 4));
-    
-    if (elements.healthPercentage) {
-        elements.healthPercentage.textContent = `${Math.floor(appState.networkHealth)}%`;
-    }
-    
-    // Update latency display
-    const latency = Math.floor(Math.random() * 30 + 10);
-    if (elements.networkLatency) {
-        elements.networkLatency.textContent = `Online • ${latency}ms`;
-    }
-    
-    // Update health stats
-    const latencyStat = document.getElementById('latency-stat');
-    const jitterStat = document.getElementById('jitter-stat');
-    const lossStat = document.getElementById('loss-stat');
-    
-    if (latencyStat) latencyStat.textContent = `${latency}ms`;
-    if (jitterStat) jitterStat.textContent = `${Math.floor(Math.random() * 5 + 1)}ms`;
-    if (lossStat) lossStat.textContent = `${(Math.random() * 0.5).toFixed(1)}%`;
-}
+// Only keep the app data simulation running to show app changes
+setInterval(() => {
+    updateBandwidthData();
+    updateProcessData();
+    updateDashboard(); // To update the app bandwidth bars on the dashboard
+}, 3000);
 
 function updateBandwidthData() {
-    // Simulate bandwidth usage changes
+    // Simulate bandwidth usage changes for individual apps
     appState.activeApps.forEach(app => {
         app.download = Math.max(10, app.download + (Math.random() - 0.5) * 100);
         app.upload = Math.max(5, app.upload + (Math.random() - 0.5) * 20);
         app.usage = Math.max(5, Math.min(95, app.usage + (Math.random() - 0.5) * 10));
     });
     
-    // Update bandwidth bars
-    document.querySelectorAll('.bandwidth-fill').forEach(bar => {
-        const randomWidth = Math.floor(Math.random() * 80) + 10;
-        bar.style.width = randomWidth + '%';
-    });
+    // Update dashboard bandwidth bars (moved from dashboard update for refresh)
+    const dashboardApps = document.getElementById('active-apps-list');
+    if (dashboardApps) {
+         document.querySelectorAll('.app-item .bandwidth-fill').forEach((bar, index) => {
+            // Use the actual app usage data
+            bar.style.width = appState.activeApps[index] ? appState.activeApps[index].usage + '%' : '10%';
+        });
+    }
 }
 
 function updateProcessData() {
@@ -731,7 +803,7 @@ function updateProfileSettings(profile) {
             steam: { priority: 'critical', bandwidth: 95 },
             discord: { priority: 'high', bandwidth: 70 }
         },
-        sleep: {
+        'sleep-mode': { // Use consistent key based on switchProfile
             all: { priority: 'low', bandwidth: 20 }
         }
     };
