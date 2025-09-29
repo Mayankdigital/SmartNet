@@ -1,804 +1,820 @@
-// Global Application State
-const appState = {
-    activeProfile: 'work',
-    networkHealth: 94,
-    activeApps: [
-        { name: 'Zoom', icon: '🎥', usage: 60, protocol: 'UDP', pid: 1234, download: 245, upload: 89 },
-        { name: 'Chrome', icon: '🌐', usage: 30, protocol: 'TCP', pid: 5678, download: 1200, upload: 156 },
-        { name: 'Spotify', icon: '🎵', usage: 15, protocol: 'TCP', pid: 9012, download: 320, upload: 12 },
-        { name: 'Discord', icon: '💬', usage: 25, protocol: 'UDP', pid: 3456, download: 180, upload: 45 },
-        { name: 'Steam', icon: '🎮', usage: 40, protocol: 'TCP', pid: 7890, download: 850, upload: 23 }
-    ],
-    processes: [],
-    downloadQueue: [
-        { name: 'Windows Update KB5028185', size: '1.2 GB', time: '02:00 AM', priority: 'HIGH' },
-        { name: 'YouTube - Machine Learning Playlist', size: '3.8 GB', time: '01:30 AM', priority: 'MED' },
-        { name: 'Steam Game Update - Cyberpunk 2077', size: '15.6 GB', time: '03:00 AM', priority: 'LOW' }
-    ],
-    profiles: [
-        { name: 'Work Profile', icon: '💼', description: 'Optimized for video calls and productivity', active: true, apps: 8, bandwidth: '80%' },
-        { name: 'Gaming Profile', icon: '🎮', description: 'Low latency for competitive gaming', active: false, apps: 12, bandwidth: '95%' },
-        { name: 'Sleep Mode', icon: '🌙', description: 'Minimal background activity', active: false, apps: 2, bandwidth: '20%' },
-        { name: 'Streaming Profile', icon: '📺', description: 'High bandwidth for media consumption', active: false, apps: 6, bandwidth: '90%' }
-    ],
-    recommendations: [
-        { type: 'optimize', icon: '💡', title: 'Optimize Download Schedule', description: 'Move large downloads to 2-4 AM for 40% faster speeds' },
-        { type: 'gaming', icon: '⚡', title: 'Enable Gaming Profile Auto-Switch', description: 'Detected gaming sessions at 8 PM - enable auto-optimization' },
-        { type: 'priority', icon: '🔧', title: 'Reduce Spotify Priority', description: 'Lower bandwidth allocation could improve video call quality' }
-    ],
-    timer: null,
-    timerEndTime: null
-};
+const initialApplications = [ 
+    {
+        name: "Zoom Meeting",
+        logo: "Z",
+        category: "Video Conference",
+        protocol: "TCP/UDP",
+        speed: "4.2 MB/s",
+        priority: "high",
+        speedLimit: "10 MB/s",
+        active: true,
+        color: 'linear-gradient(135deg, #4285f4, #5a95f5)',
+        uploadSpeed: "1.5 MB/s",
+        downloadCap: 50, // Mbps
+        uploadCap: 10,
+        appliedModes: ['work', 'gaming'],
+        policyApplied: false 
+    },
+    {
+        name: "Spotify",
+        logo: "♪",
+        category: "Music Streaming",
+        protocol: "TCP",
+        speed: "320 KB/s",
+        priority: "medium",
+        speedLimit: "1 MB/s",
+        active: true,
+        color: 'linear-gradient(135deg, #1ed760, #1fdf64)',
+        uploadSpeed: "10 KB/s",
+        downloadCap: 5,
+        uploadCap: 1,
+        appliedModes: ['entertainment'],
+        policyApplied: false 
+    },
+    {
+        name: "Steam",
+        logo: "S",
+        category: "Game Download",
+        protocol: "Scheduled",
+        speed: "0 KB/s",
+        priority: "low",
+        speedLimit: "50 MB/s",
+        active: false,
+        color: 'linear-gradient(135deg, #1b2838, #2a475e)',
+        uploadSpeed: "0 KB/s",
+        downloadCap: 100,
+        uploadCap: 1,
+        appliedModes: ['night'],
+        policyApplied: false 
+    },
+    {
+        name: "Chrome",
+        logo: "C",
+        category: "Web Browser",
+        protocol: "HTTP/2",
+        speed: "2.1 MB/s",
+        priority: "medium",
+        speedLimit: "10 MB/s",
+        active: true,
+        color: 'linear-gradient(135deg, #4285f4, #ea4335)',
+        uploadSpeed: "0.5 MB/s",
+        downloadCap: 20,
+        uploadCap: 5,
+        appliedModes: ['work', 'custom'],
+        policyApplied: false 
+    },
+    {
+        name: "Teams",
+        logo: "T",
+        category: "Video Conference",
+        protocol: "UDP",
+        speed: "1.8 MB/s",
+        priority: "high",
+        speedLimit: "5 MB/s",
+        active: true,
+        color: 'linear-gradient(135deg, #5b5fc7, #6264a7)',
+        uploadSpeed: "0.8 MB/s",
+        downloadCap: 5,
+        uploadCap: 5,
+        appliedModes: ['work'],
+        policyApplied: false 
+    }
+];
 
-// DOM Elements
-const elements = {
-    navItems: document.querySelectorAll('.nav-item'),
-    sections: document.querySelectorAll('.section'),
-    killSwitch: document.getElementById('kill-switch'),
-    profileSelector: document.getElementById('profile-selector'),
-    healthPercentage: document.getElementById('health-percentage'),
-    networkLatency: document.getElementById('network-latency'),
-    activeAppsList: document.getElementById('active-apps-list'),
-    processList: document.getElementById('process-list'),
-    bandwidthAppsGrid: document.getElementById('bandwidth-apps-grid'),
-    weeklySchedule: document.getElementById('weekly-schedule'),
-    downloadQueue: document.getElementById('download-queue'),
-    profilesContainer: document.getElementById('profiles-container'),
-    protocolMatrix: document.querySelector('#protocol-matrix tbody'),
-    switchHistory: document.getElementById('switch-history'),
-    aiRecommendations: document.getElementById('ai-recommendations'),
-    activeTimer: document.getElementById('active-timer'),
-    timerCountdown: document.getElementById('timer-countdown'),
-    appPerformanceList: document.getElementById('app-performance-list')
-};
+let applications = JSON.parse(JSON.stringify(initialApplications));
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', function() {
-    initializeNavigation();
-    initializeComponents();
-    startRealTimeUpdates();
+const POLICY_MODES = [
+    { value: 'work', label: 'Work Mode' },
+    { value: 'gaming', label: 'Gaming Mode' },
+    { value: 'entertainment', label: 'Entertainment' },
+    { value: 'night', label: 'Night Mode' },
+    { value: 'custom', label: 'Custom' }
+];
+
+function getInitialApplicationState(name) {
+    const initial = initialApplications.find(app => app.name === name);
+    return initial ? JSON.parse(JSON.stringify(initial)) : null;
+}
+
+function createPolicyResetLogEntry(app, pid) {
+    return {
+        name: app.name,
+        logo: app.logo,
+        category: 'DEFAULT POLICY', 
+        protocol: 'DEFAULT', 
+        speed: "0 KB/s", 
+        priority: 'low',
+        speedLimit: 'DEFAULT',
+        active: false,
+        color: app.color,
+        uploadSpeed: "0 KB/s",
+        downloadCap: 0,
+        uploadCap: 0,
+        pid: pid,
+        timestamp: new Date().toLocaleTimeString(),
+        appliedModes: [],
+        policyApplied: false 
+    };
+}
+
+
+let downloadChart, uploadChart, latencyChart, efficiencyChart, bandwidthChart, protocolDistributionChart, packetLossChart;
+let downloadData = [42, 45, 43, 47, 45, 48, 45, 46, 44, 45];
+let uploadData = [12, 13, 12, 14, 13, 12, 13, 12, 13, 13];
+let latencyData = [25, 23, 26, 22, 24, 21, 23, 25, 22, 23];
+let efficiencyData = [92, 94, 93, 95, 94, 96, 94, 96, 93, 94];
+let bandwidthTimeData = [];
+let bandwidthDownloadData = [];
+let bandwidthUploadData = [];
+
+let protocolData = [55, 30, 15];
+let packetLossData = [0.5, 1.2, 0.8, 1.5, 0.9, 0.4, 1.1];
+
+let currentEditingAppIndex = -1;
+let nextPID = 1000;
+
+
+function initDashboard() {
+    applications.forEach((app, index) => app.pid = nextPID + index);
+    nextPID += applications.length;
+
+    initializeCharts();
+    generateInitialBandwidthData();
+    renderApplications('dashboard'); 
     setupEventListeners();
-    
-    console.log('🚀 Adaptive Network Scheduler initialized successfully!');
-});
-
-// Navigation System
-function initializeNavigation() {
-    elements.navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            // Remove active class from all nav items and sections
-            elements.navItems.forEach(nav => nav.classList.remove('active'));
-            elements.sections.forEach(section => section.classList.remove('active'));
-            
-            // Add active class to clicked nav item
-            item.classList.add('active');
-            
-            // Show corresponding section
-            const sectionId = item.getAttribute('data-section');
-            const targetSection = document.getElementById(sectionId);
-            if (targetSection) {
-                targetSection.classList.add('active');
-                
-                // Load section-specific content
-                loadSectionContent(sectionId);
-            }
-        });
-    });
+    startRealTimeUpdates();
 }
 
-// Load Section Content
-function loadSectionContent(sectionId) {
-    switch(sectionId) {
-        case 'dashboard':
-            updateDashboard();
-            break;
-        case 'monitor':
-            updateMonitor();
-            break;
-        case 'bandwidth':
-            updateBandwidthManager();
-            break;
-        case 'protocol':
-            updateProtocolEngine();
-            break;
-        case 'scheduler':
-            updateScheduler();
-            break;
-        case 'prefetch':
-            updatePrefetchQueue();
-            break;
-        case 'profiles':
-            updateProfiles();
-            break;
-        case 'analytics':
-            updateAnalytics();
-            break;
-    }
-}
-
-// Dashboard Updates
-function updateDashboard() {
-    // Update network health
-    if (elements.healthPercentage) {
-        elements.healthPercentage.textContent = `${appState.networkHealth}%`;
-    }
-    
-    // Update active apps list
-    if (elements.activeAppsList) {
-        elements.activeAppsList.innerHTML = appState.activeApps.slice(0, 3).map(app => `
-            <div class="app-item">
-                <div class="app-info">
-                    <div class="app-icon">${app.icon}</div>
-                    <span>${app.name}</span>
-                </div>
-                <div class="bandwidth-bar">
-                    <div class="bandwidth-fill" style="width: ${app.usage}%;"></div>
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    // Update stats
-    updateDashboardStats();
-}
-
-function updateDashboardStats() {
-    const stats = {
-        'data-used': `${(Math.random() * 5 + 1).toFixed(1)} GB`,
-        'time-saved': `${Math.floor(Math.random() * 60 + 30)} min`,
-        'apps-managed': appState.activeApps.length,
-        'profile-switches': Math.floor(Math.random() * 5 + 1)
+function initializeCharts() {
+    const miniChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { display: false }, y: { display: false } },
+        elements: {
+            line: { tension: 0.4, borderWidth: 2 },
+            point: { radius: 0 }
+        }
     };
-    
-    Object.entries(stats).forEach(([id, value]) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    });
-}
 
-// Monitor Updates
-function updateMonitor() {
-    if (elements.processList) {
-        elements.processList.innerHTML = appState.activeApps.map(app => `
-            <div class="process-item">
-                <div class="app-info">
-                    <div class="app-icon">${app.icon}</div>
-                    <div>
-                        <div>${app.name}.exe</div>
-                        <div style="font-size: 12px; color: #888;">PID: ${app.pid}</div>
-                    </div>
-                </div>
-                <div style="text-align: right;">
-                    <span class="protocol-badge protocol-${app.protocol.toLowerCase()}">${app.protocol}</span>
-                    <div style="font-size: 12px; margin-top: 5px;">
-                        ↓ ${app.download} KB/s ↑ ${app.upload} KB/s
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    }
-}
+    downloadChart = new Chart(document.getElementById('downloadChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: downloadData, borderColor: '#0066ff', backgroundColor: 'rgba(0, 102, 255, 0.1)', fill: true }] }, options: miniChartOptions });
+    uploadChart = new Chart(document.getElementById('uploadChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: uploadData, borderColor: '#00c864', backgroundColor: 'rgba(0, 200, 100, 0.1)', fill: true }] }, options: miniChartOptions });
+    latencyChart = new Chart(document.getElementById('latencyChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: latencyData, borderColor: '#ff9500', backgroundColor: 'rgba(255, 149, 0, 0.1)', fill: true }] }, options: miniChartOptions });
+    efficiencyChart = new Chart(document.getElementById('efficiencyChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: efficiencyData, borderColor: '#5e5ce6', backgroundColor: 'rgba(94, 92, 230, 0.1)', fill: true }] }, options: miniChartOptions });
 
-// Bandwidth Manager Updates
-function updateBandwidthManager() {
-    if (elements.bandwidthAppsGrid) {
-        elements.bandwidthAppsGrid.innerHTML = appState.activeApps.map((app, index) => `
-            <div class="app-card">
-                <div class="app-header">
-                    <div class="app-icon-large">${app.icon}</div>
-                    <div>
-                        <h4>${app.name}</h4>
-                        <span style="font-size: 12px; color: #888;">${getAppCategory(app.name)}</span>
-                    </div>
-                </div>
-                
-                <div class="slider-container">
-                    <div class="slider-label">
-                        <span>Download Limit</span>
-                        <span class="download-value">${(app.download / 100).toFixed(1)} MB/s</span>
-                    </div>
-                    <input type="range" class="slider download-slider" min="0" max="100" value="${app.usage}" data-app="${index}">
-                </div>
-                
-                <div class="slider-container">
-                    <div class="slider-label">
-                        <span>Upload Limit</span>
-                        <span class="upload-value">${(app.upload / 100).toFixed(1)} MB/s</span>
-                    </div>
-                    <input type="range" class="slider upload-slider" min="0" max="100" value="${Math.floor(app.usage * 0.6)}" data-app="${index}">
-                </div>
-                
-                <select class="priority-select" data-app="${index}">
-                    <option value="critical">Critical Priority</option>
-                    <option value="high">High Priority</option>
-                    <option value="normal" ${app.name === 'Chrome' ? 'selected' : ''}>Normal Priority</option>
-                    <option value="low" ${app.name === 'Spotify' ? 'selected' : ''}>Low Priority</option>
-                    <option value="blocked">Blocked</option>
-                </select>
-            </div>
-        `).join('');
-        
-        // Add event listeners for sliders
-        setupSliderListeners();
-    }
-}
-
-// Protocol Engine Updates
-function updateProtocolEngine() {
-    if (elements.protocolMatrix) {
-        elements.protocolMatrix.innerHTML = appState.activeApps.slice(0, 3).map(app => `
-            <tr>
-                <td>${app.name}</td>
-                <td><span class="protocol-badge protocol-${app.protocol.toLowerCase()}">${app.protocol}</span></td>
-                <td>${app.protocol === 'UDP' ? 'TCP' : 'HTTP/3'}</td>
-                <td>${getProtocolReason(app.name, app.protocol)}</td>
-            </tr>
-        `).join('');
-    }
-    
-    if (elements.switchHistory) {
-        const switches = [
-            { time: '14:23:45', app: 'Zoom', change: 'UDP → TCP', reason: 'High packet loss detected', color: '#ff6600' },
-            { time: '14:20:12', app: 'Chrome', change: 'enabled HTTP/3', reason: 'Network stable', color: '#00ff00' },
-            { time: '14:15:33', app: 'Gaming app', change: 'TCP → UDP', reason: 'Low latency mode', color: '#00f5ff' }
-        ];
-        
-        elements.switchHistory.innerHTML = switches.map(s => `
-            <div class="history-item">
-                <span>${s.time} - ${s.app} ${s.change}</span>
-                <span class="history-reason" style="color: ${s.color};">${s.reason}</span>
-            </div>
-        `).join('');
-    }
-    
-    updateNetworkConditions();
-}
-
-function updateNetworkConditions() {
-    const conditions = {
-        latency: { value: Math.floor(Math.random() * 20 + 10), unit: 'ms', color: '#00ff00' },
-        jitter: { value: Math.floor(Math.random() * 5 + 1), unit: 'ms', color: '#ffff00' },
-        loss: { value: (Math.random() * 0.5).toFixed(1), unit: '%', color: '#00ff00' },
-        stability: { value: 'Excellent', unit: '', color: '#00ff00' }
-    };
-    
-    Object.entries(conditions).forEach(([key, data]) => {
-        const valueElement = document.getElementById(`condition-${key}`);
-        const barElement = document.getElementById(`${key}-bar`);
-        
-        if (valueElement) {
-            valueElement.textContent = `${data.value}${data.unit}`;
-            valueElement.style.color = data.color;
-        }
-        
-        if (barElement) {
-            const percentage = key === 'stability' ? 90 : Math.max(10, 100 - parseFloat(data.value) * 10);
-            barElement.style.width = `${percentage}%`;
-        }
-    });
-}
-
-// Scheduler Updates
-function updateScheduler() {
-    if (elements.weeklySchedule) {
-        generateWeeklySchedule();
-    }
-}
-
-function generateWeeklySchedule() {
-    if (!elements.weeklySchedule) return;
-    
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    let scheduleHTML = '<div class="time-header"></div>';
-    
-    // Time headers
-    for (let hour = 0; hour < 24; hour++) {
-        scheduleHTML += `<div class="time-header">${hour.toString().padStart(2, '0')}</div>`;
-    }
-    
-    // Days and time blocks
-    days.forEach(day => {
-        scheduleHTML += `<div class="time-header">${day}</div>`;
-        for (let hour = 0; hour < 24; hour++) {
-            const isActive = (hour >= 6 && hour <= 23) && day !== 'Sat' && day !== 'Sun' ? hour < 22 : hour >= 8 && hour <= 20;
-            scheduleHTML += `<div class="schedule-block ${isActive ? 'active' : ''}" data-day="${day}" data-hour="${hour}"></div>`;
-        }
-    });
-    
-    elements.weeklySchedule.innerHTML = scheduleHTML;
-    
-    // Add click listeners
-    document.querySelectorAll('.schedule-block').forEach(block => {
-        block.addEventListener('click', () => {
-            block.classList.toggle('active');
-        });
-    });
-}
-
-// Prefetch Queue Updates
-function updatePrefetchQueue() {
-    if (elements.downloadQueue) {
-        elements.downloadQueue.innerHTML = appState.downloadQueue.map((item, index) => `
-            <div class="download-item">
-                <div class="download-info">
-                    <h4>${item.name}</h4>
-                    <div class="download-details">Size: ${item.size} • Scheduled: ${item.time}</div>
-                </div>
-                <div class="download-actions">
-                    <span class="priority-badge priority-${item.priority.toLowerCase()}">${item.priority}</span>
-                    <button style="background: none; border: none; color: #888; cursor: pointer;" onclick="removeDownload(${index})">⋮</button>
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    if (elements.aiRecommendations) {
-        elements.aiRecommendations.innerHTML = appState.recommendations.map(rec => `
-            <div class="recommendation-item recommendation-${rec.type}">
-                <div class="recommendation-icon">${rec.icon}</div>
-                <div class="recommendation-content">
-                    <h5>${rec.title}</h5>
-                    <p>${rec.description}</p>
-                </div>
-            </div>
-        `).join('');
-    }
-}
-
-// Profiles Updates
-function updateProfiles() {
-    if (elements.profilesContainer) {
-        elements.profilesContainer.innerHTML = appState.profiles.map((profile, index) => `
-            <div class="profile-card ${profile.active ? 'active' : ''}" data-profile="${index}">
-                <div class="profile-icon">${profile.icon}</div>
-                <div class="profile-name">${profile.name}</div>
-                <div class="profile-description">${profile.description}</div>
-                <div class="profile-stats">
-                    <div class="profile-stat">Apps: ${profile.apps}</div>
-                    <div class="profile-stat">Bandwidth: ${profile.bandwidth}</div>
-                </div>
-                <button class="action-btn profile-btn" data-profile="${index}">
-                    ${profile.active ? 'Currently Active' : 'Switch Profile'}
-                </button>
-            </div>
-        `).join('');
-        
-        // Add profile switch listeners
-        setupProfileListeners();
-    }
-}
-
-// Analytics Updates
-function updateAnalytics() {
-    if (elements.appPerformanceList) {
-        elements.appPerformanceList.innerHTML = appState.activeApps.map(app => `
-            <div class="app-performance-item">
-                <div class="performance-info">
-                    <div class="app-icon">${app.icon}</div>
-                    <div>
-                        <div style="font-weight: 600;">${app.name}</div>
-                        <div style="font-size: 12px; color: #888;">${getAppCategory(app.name)}</div>
-                    </div>
-                </div>
-                <div class="performance-metrics-analytics">
-                    <div class="performance-metric">
-                        <div class="metric-value-small">${Math.floor(Math.random() * 30 + 10)}%</div>
-                        <div class="metric-label-small">Improvement</div>
-                    </div>
-                    <div class="performance-metric">
-                        <div class="metric-value-small">${Math.floor(Math.random() * 50 + 20)}ms</div>
-                        <div class="metric-label-small">Avg Latency</div>
-                    </div>
-                    <div class="performance-metric">
-                        <div class="metric-value-small">${(Math.random() * 2 + 0.5).toFixed(1)}GB</div>
-                        <div class="metric-label-small">Data Used</div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    }
-}
-
-// Event Listeners Setup
-function setupEventListeners() {
-    // Kill switch
-    if (elements.killSwitch) {
-        elements.killSwitch.addEventListener('click', handleKillSwitch);
-    }
-    
-    // Profile selector
-    if (elements.profileSelector) {
-        elements.profileSelector.addEventListener('change', handleProfileChange);
-    }
-    
-    // Quick action buttons
-    document.querySelectorAll('.action-btn').forEach(btn => {
-        if (btn.dataset.action) {
-            btn.addEventListener('click', () => handleQuickAction(btn.dataset.action));
-        }
-        if (btn.dataset.timer) {
-            btn.addEventListener('click', () => handleTimerAction(btn.dataset.timer));
-        }
-    });
-    
-    // Add download button
-    const addDownloadBtn = document.getElementById('add-download');
-    if (addDownloadBtn) {
-        addDownloadBtn.addEventListener('click', handleAddDownload);
-    }
-    
-    // Sleep settings
-    setupSleepSettings();
-}
-
-function setupSliderListeners() {
-    document.querySelectorAll('.download-slider').forEach(slider => {
-        slider.addEventListener('input', (e) => {
-            const appIndex = parseInt(e.target.dataset.app);
-            const value = parseInt(e.target.value);
-            const valueSpan = e.target.parentNode.querySelector('.download-value');
-            if (valueSpan) {
-                valueSpan.textContent = `${(value * 50 / 100).toFixed(1)} MB/s`;
-            }
-            appState.activeApps[appIndex].usage = value;
-        });
-    });
-    
-    document.querySelectorAll('.upload-slider').forEach(slider => {
-        slider.addEventListener('input', (e) => {
-            const appIndex = parseInt(e.target.dataset.app);
-            const value = parseInt(e.target.value);
-            const valueSpan = e.target.parentNode.querySelector('.upload-value');
-            if (valueSpan) {
-                valueSpan.textContent = `${(value * 20 / 100).toFixed(1)} MB/s`;
-            }
-            appState.activeApps[appIndex].upload = value * 2;
-        });
-    });
-    
-    document.querySelectorAll('.priority-select').forEach(select => {
-        select.addEventListener('change', (e) => {
-            const appIndex = parseInt(e.target.dataset.app);
-            const priority = e.target.value;
-            // Update app priority logic here
-            showNotification(`${appState.activeApps[appIndex].name} priority changed to ${priority}`);
-        });
-    });
-}
-
-function setupProfileListeners() {
-    document.querySelectorAll('.profile-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const profileIndex = parseInt(e.target.dataset.profile);
-            switchProfile(profileIndex);
-        });
-    });
-}
-
-function setupSleepSettings() {
-    const bedtimeInput = document.getElementById('bedtime');
-    const wakeTimeInput = document.getElementById('wake-time');
-    const autoCutoffCheck = document.getElementById('auto-cutoff');
-    const allowUpdatesCheck = document.getElementById('allow-updates');
-    const blockSocialCheck = document.getElementById('block-social');
-    
-    [bedtimeInput, wakeTimeInput, autoCutoffCheck, allowUpdatesCheck, blockSocialCheck].forEach(input => {
-        if (input) {
-            input.addEventListener('change', () => {
-                showNotification('Sleep settings updated');
-            });
-        }
-    });
-}
-
-// Action Handlers
-function handleKillSwitch() {
-    const confirmed = confirm('Are you sure you want to kill all network connections?');
-    if (confirmed) {
-        showNotification('All network connections terminated', 'warning');
-        // Simulate network shutdown
-        appState.networkHealth = 0;
-        appState.activeApps = [];
-        updateDashboard();
-        updateMonitor();
-    }
-}
-
-function handleProfileChange(e) {
-    const newProfile = e.target.value;
-    appState.activeProfile = newProfile;
-    showNotification(`Switched to ${newProfile} profile`);
-    
-    // Update profile-specific settings
-    updateProfileSettings(newProfile);
-}
-
-function handleQuickAction(action) {
-    const actions = {
-        gaming: () => {
-            appState.activeProfile = 'gaming';
-            elements.profileSelector.value = 'gaming';
-            showNotification('Gaming mode activated');
+    bandwidthChart = new Chart(document.getElementById('bandwidthChart'), {
+        type: 'line',
+        data: {
+            labels: bandwidthTimeData,
+            datasets: [
+                { label: 'Download', data: bandwidthDownloadData, borderColor: '#0066ff', backgroundColor: 'rgba(0, 102, 255, 0.1)', fill: true, tension: 0.4 },
+                { label: 'Upload', data: bandwidthUploadData, borderColor: '#00c864', backgroundColor: 'rgba(0, 200, 100, 0.1)', fill: true, tension: 0.4 }
+            ]
         },
-        work: () => {
-            appState.activeProfile = 'work';
-            elements.profileSelector.value = 'work';
-            showNotification('Work mode activated');
-        },
-        sleep: () => {
-            handleTimerAction('480'); // 8 hours
-        },
-        boost: () => {
-            showNotification('Priority boost applied to active applications');
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: 'top', labels: { color: '#1a2332', usePointStyle: true } } },
+            scales: { x: { grid: { color: 'rgba(0, 100, 255, 0.1)' }, ticks: { color: '#7a8a99' } }, y: { grid: { color: 'rgba(0, 100, 255, 0.1)' }, ticks: { color: '#7a8a99' } } },
+            elements: { line: { borderWidth: 3 }, point: { radius: 4, hoverRadius: 6 } }
         }
-    };
-    
-    if (actions[action]) {
-        actions[action]();
+    });
+
+    protocolDistributionChart = new Chart(document.getElementById('protocolDistributionChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['TCP', 'UDP', 'HTTP/2 & Other'],
+            datasets: [{
+                data: protocolData,
+                backgroundColor: ['#0066ff', '#ff9500', '#5e5ce6'],
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'Protocol Distribution (%)', color: '#1a2332', font: { size: 14 } }, legend: { position: 'bottom', labels: { color: '#7a8a99' } } }
+        }
+    });
+
+    packetLossChart = new Chart(document.getElementById('packetLossChart'), {
+        type: 'bar',
+        data: {
+            labels: ['0', '-10', '-20', '-30', '-40', '-50', '-60'], 
+            datasets: [{
+                label: 'Packet Loss (%)',
+                data: packetLossData,
+                backgroundColor: '#ff3b30',
+                borderColor: '#ff3b30',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { title: { display: true, text: 'Packet Loss Rate (%)', color: '#1a2332', font: { size: 14 } }, legend: { display: false } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 2.0 } }
+        }
+    });
+}
+
+
+function generateInitialBandwidthData() {
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+        const time = new Date(now.getTime() - i * 60000);
+        bandwidthTimeData.push(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        bandwidthDownloadData.push(Math.random() * 30 + 20);
+        bandwidthUploadData.push(Math.random() * 15 + 5);
     }
 }
 
-function handleTimerAction(duration) {
-    if (appState.timer) {
-        clearInterval(appState.timer);
+
+/**
+ * Renders application list based on the requested view (dashboard or monitor).
+ */
+function renderApplications(view) {
+    const containerId = view === 'monitor' ? 'monitorAppsContainer' : 'appsContainer';
+    const container = document.getElementById(containerId);
+    if (!container) return; 
+
+    container.innerHTML = '';
+    
+    let listToRender = applications; 
+    
+    // Apply Filter Logic for Monitor View
+    if (view === 'monitor') {
+        const filterValue = document.getElementById('policyStatusFilter').value;
+        if (filterValue === 'applied') {
+            listToRender = listToRender.filter(app => app.policyApplied === true && app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY');
+        } else if (filterValue === 'default') {
+            listToRender = listToRender.filter(app => app.policyApplied === false || app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY');
+        }
     }
-    
-    let minutes;
-    if (duration === 'until-6am') {
-        const now = new Date();
-        const tomorrow6am = new Date(now);
-        tomorrow6am.setDate(tomorrow6am.getDate() + 1);
-        tomorrow6am.setHours(6, 0, 0, 0);
-        minutes = Math.floor((tomorrow6am - now) / (1000 * 60));
-    } else {
-        minutes = parseInt(duration);
-    }
-    
-    startTimer(minutes);
-    showNotification(`Sleep timer set for ${formatTime(minutes)}`);
-}
 
-function handleAddDownload() {
-    const newDownload = {
-        name: 'New Download Task',
-        size: `${(Math.random() * 10 + 1).toFixed(1)} GB`,
-        time: '03:30 AM',
-        priority: 'MED'
-    };
-    
-    appState.downloadQueue.push(newDownload);
-    updatePrefetchQueue();
-    showNotification('Download added to queue');
-}
 
-function switchProfile(profileIndex) {
-    // Deactivate all profiles
-    appState.profiles.forEach(profile => profile.active = false);
-    
-    // Activate selected profile
-    appState.profiles[profileIndex].active = true;
-    appState.activeProfile = appState.profiles[profileIndex].name.toLowerCase().replace(' profile', '');
-    
-    updateProfiles();
-    showNotification(`Switched to ${appState.profiles[profileIndex].name}`);
-}
-
-function removeDownload(index) {
-    appState.downloadQueue.splice(index, 1);
-    updatePrefetchQueue();
-    showNotification('Download removed from queue');
-}
-
-// Timer Functions
-function startTimer(minutes) {
-    appState.timerEndTime = new Date(Date.now() + minutes * 60000);
-    
-    if (elements.activeTimer) {
-        elements.activeTimer.classList.add('visible');
-    }
-    
-    appState.timer = setInterval(() => {
-        const remaining = Math.max(0, Math.floor((appState.timerEndTime - new Date()) / 1000));
+    listToRender.forEach((app) => {
         
-        if (remaining === 0) {
-            clearInterval(appState.timer);
-            appState.timer = null;
-            if (elements.activeTimer) {
-                elements.activeTimer.classList.remove('visible');
-            }
-            showNotification('Sleep timer completed - Network disabled', 'info');
+        // Skip rendering the permanent KILLED/DEFAULT POLICY log entries on the DASHBOARD
+        if (view === 'dashboard' && (app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY')) {
             return;
         }
+
+        const originalIndex = applications.findIndex(a => a.pid === app.pid);
         
-        if (elements.timerCountdown) {
-            elements.timerCountdown.textContent = formatSeconds(remaining);
+        const appElement = document.createElement('div');
+        const statusClass = (view === 'monitor' && !app.active) ? 'inactive' : (app.active ? 'active' : '');
+        appElement.className = `app-item ${statusClass}`;
+
+        let appInfoContent;
+
+        const modesDisplay = app.appliedModes && app.appliedModes.length > 0
+            ? `<span class="app-mode-badge">${app.appliedModes.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}</span>`
+            : '';
+        
+        // Policy Checkmark for Monitor
+        const policyCheckMarkMonitor = app.policyApplied 
+            ? `<span style="color: #00c864; font-size: 16px; margin-left: 8px;">✅</span>`
+            : '';
+
+        if (view === 'monitor') {
+            // Monitor View - NO CAPS
+            const speedDisplayDown = `⬇️ ${app.speed}`;
+            const speedDisplayUp = `⬆️ ${app.uploadSpeed}`;
+            const protocolDisplay = app.active ? app.protocol.split('/')[0] : app.protocol;
+            
+            // FIX: Color logic for Monitor
+            // Set colors based on status, but use fixed theme colors for app details.
+            let downloadColor, uploadColor;
+            
+            if (app.category === 'KILLED PROCESS') {
+                downloadColor = '#ff3b30'; // Red for true termination
+                uploadColor = '#ff3b30'; 
+            } else if (app.active) {
+                downloadColor = '#00c864'; // Green when Active
+                uploadColor = '#ff9500';  // Orange when Active
+            } else {
+                // Paused or Default Policy: Use Dark text color for speeds
+                // We keep the original colors here, so it doesn't look muted/black.
+                // The visual distinction is the 0 KB/s reading.
+                downloadColor = '#00c864'; 
+                uploadColor = '#ff9500';
+            }
+
+
+            appInfoContent = `
+                <div class="app-details">
+                    <div class="app-name-text" style="color: #1a2332;">${app.name} ${policyCheckMarkMonitor}</div>
+                    <div class="app-category">
+                        <span style="color: #7a8a99;">PID: ${app.pid}</span>
+                    </div>
+                </div>
+                <div class="app-speeds-monitor">
+                    <div class="app-download-speed" style="color: ${downloadColor};">
+                        <span>${speedDisplayDown}</span>
+                    </div>
+                    <div class="app-upload-speed" style="color: ${uploadColor};">
+                        <span>${speedDisplayUp}</span>
+                    </div>
+                </div>
+                <div class="app-category">
+                    Current: <span class="app-protocol-badge">${protocolDisplay}</span>
+                </div>
+                <div class="app-controls">
+                    <button class="policy-btn" onclick="openPolicyEditor(${originalIndex})">POLICY</button>
+                </div>
+            `;
+        } else {
+            // Dashboard View (Original)
+            appInfoContent = `
+                <div class="app-details">
+                    <div class="app-name-text">${app.name}</div>
+                    <div class="app-category">
+                        <span>${app.category}</span>
+                        <span class="app-protocol-badge">${app.protocol}</span>
+                        ${modesDisplay}
+                    </div>
+                </div>
+                <div class="app-performance">
+                    <div class="app-speed">${app.speed}</div>
+                    <div class="app-limit">Limit: ${app.speedLimit}</div>
+                </div>
+                <div class="priority-badge priority-${app.priority}">${app.priority.toUpperCase()}</div>
+                <div class="app-controls">
+                    <div class="toggle-switch ${app.active ? 'active' : ''}" onclick="toggleApp(${originalIndex})">
+                        <div class="toggle-slider"></div>
+                    </div>
+                    <button class="kill-app-btn" onclick="killApp(${originalIndex}, 'dashboard')">KILL</button>
+                </div>
+            `;
         }
-    }, 1000);
-}
 
-function formatTime(minutes) {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours > 0) {
-        return `${hours}h ${mins}m`;
-    }
-    return `${mins} minutes`;
-}
-
-function formatSeconds(seconds) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Real-time Updates
-function startRealTimeUpdates() {
-    // Update network stats every 3 seconds
-    setInterval(() => {
-        updateNetworkStats();
-        updateBandwidthData();
-    }, 3000);
-    
-    // Update process data every 5 seconds
-    setInterval(() => {
-        updateProcessData();
-    }, 5000);
-}
-
-function updateNetworkStats() {
-    // Simulate network health fluctuations
-    appState.networkHealth = Math.max(85, Math.min(98, appState.networkHealth + (Math.random() - 0.5) * 4));
-    
-    if (elements.healthPercentage) {
-        elements.healthPercentage.textContent = `${Math.floor(appState.networkHealth)}%`;
-    }
-    
-    // Update latency display
-    const latency = Math.floor(Math.random() * 30 + 10);
-    if (elements.networkLatency) {
-        elements.networkLatency.textContent = `Online • ${latency}ms`;
-    }
-    
-    // Update health stats
-    const latencyStat = document.getElementById('latency-stat');
-    const jitterStat = document.getElementById('jitter-stat');
-    const lossStat = document.getElementById('loss-stat');
-    
-    if (latencyStat) latencyStat.textContent = `${latency}ms`;
-    if (jitterStat) jitterStat.textContent = `${Math.floor(Math.random() * 5 + 1)}ms`;
-    if (lossStat) lossStat.textContent = `${(Math.random() * 0.5).toFixed(1)}%`;
-}
-
-function updateBandwidthData() {
-    // Simulate bandwidth usage changes
-    appState.activeApps.forEach(app => {
-        app.download = Math.max(10, app.download + (Math.random() - 0.5) * 100);
-        app.upload = Math.max(5, app.upload + (Math.random() - 0.5) * 20);
-        app.usage = Math.max(5, Math.min(95, app.usage + (Math.random() - 0.5) * 10));
-    });
-    
-    // Update bandwidth bars
-    document.querySelectorAll('.bandwidth-fill').forEach(bar => {
-        const randomWidth = Math.floor(Math.random() * 80) + 10;
-        bar.style.width = randomWidth + '%';
+        appElement.innerHTML = `
+            <div class="app-logo-small" style="background: ${app.color}">${app.logo}</div>
+            <div class="app-info">${appInfoContent}</div>
+        `;
+        container.appendChild(appElement);
     });
 }
 
-function updateProcessData() {
-    // Update process list if monitor is active
-    const activeSection = document.querySelector('.section.active');
-    if (activeSection && activeSection.id === 'monitor') {
-        updateMonitor();
-    }
-}
 
-// Utility Functions
-function getAppCategory(appName) {
-    const categories = {
-        'Zoom': 'Video Conferencing',
-        'Chrome': 'Web Browser',
-        'Spotify': 'Music Streaming',
-        'Discord': 'Communication',
-        'Steam': 'Gaming Platform'
-    };
-    return categories[appName] || 'Application';
-}
-
-function getProtocolReason(appName, protocol) {
-    const reasons = {
-        'Zoom': protocol === 'UDP' ? 'Low latency required' : 'Network congestion',
-        'Chrome': protocol === 'TCP' ? 'Reliability needed' : 'HTTP/3 optimization',
-        'Spotify': 'Music streaming optimization',
-        'Discord': 'Voice chat optimization',
-        'Steam': 'Large file transfer'
-    };
-    return reasons[appName] || 'Automatic optimization';
-}
-
-function updateProfileSettings(profile) {
-    // Simulate profile-specific optimizations
-    const profileSettings = {
-        work: {
-            zoom: { priority: 'high', bandwidth: 80 },
-            chrome: { priority: 'normal', bandwidth: 60 }
-        },
-        gaming: {
-            steam: { priority: 'critical', bandwidth: 95 },
-            discord: { priority: 'high', bandwidth: 70 }
-        },
-        sleep: {
-            all: { priority: 'low', bandwidth: 20 }
+function refreshApplications() {
+    const refreshBtn = document.querySelector('.refresh-btn');
+    refreshBtn.style.transform = 'rotate(360deg)';
+    setTimeout(() => {
+        const activeSection = document.querySelector('.sidebar-item.active').dataset.section;
+        if (activeSection === 'monitor') {
+            renderApplications('monitor');
+        } else {
+            renderApplications('dashboard');
         }
-    };
+        refreshBtn.style.transform = 'rotate(0deg)';
+        showNotification('Applications refreshed', 'success');
+    }, 500);
+}
+
+function toggleApp(index) {
+    const app = applications[index];
     
-    // Apply settings based on profile
-    if (profileSettings[profile]) {
-        showNotification(`${profile} profile optimizations applied`);
+    app.active = !app.active;
+
+    if (!app.active) {
+        // If toggled OFF (paused): Policy suspended, revert to default speed logic
+        app.speed = "0 KB/s";
+        app.uploadSpeed = "0 KB/s";
+    } 
+    // If toggled ON, the next call to updateApplicationSpeeds() will resume the speed based on saved policies.
+
+    renderApplications('dashboard');
+    renderApplications('monitor');
+    showNotification(`${app.name} ${app.active ? 'resumed' : 'paused'}`, app.active ? 'success' : 'error');
+}
+
+/**
+ * Policy Wipe/Reset Action. Removes custom policy and reverts to simulated OS defaults.
+ */
+function killApp(index) {
+    let appToKill = applications[index];
+
+    // 1. Policy Wipe/Policy Reset
+    appToKill.active = false;
+    appToKill.priority = 'low'; 
+    appToKill.speedLimit = 'DEFAULT'; // Dashboard display status
+    appToKill.policyApplied = false;
+    appToKill.appliedModes = [];
+    appToKill.protocol = 'DEFAULT';
+    appToKill.category = 'DEFAULT POLICY'; // Mark as policy reset/default
+
+    // FIX: Remove the temporary speed zeroing so updateApplicationSpeeds() can apply default rate immediately.
+    // The next updateApplicationSpeeds() call will calculate the non-zero default speed.
+    
+    renderApplications('dashboard');
+    renderApplications('monitor');
+
+    showNotification(`${appToKill.name} policy reset to system default.`, 'error');
+}
+
+function emergencyKill() {
+    applications.forEach(app => {
+        if (app.active === true) {
+             app.active = false;
+             app.priority = 'low'; 
+             app.speedLimit = 'DEFAULT'; 
+             app.policyApplied = false;
+             app.appliedModes = [];
+             app.protocol = 'DEFAULT';
+             app.category = 'DEFAULT POLICY';
+        }
+    });
+
+    renderApplications('dashboard');
+    renderApplications('monitor'); 
+    showNotification('Emergency kill activated. All policies reset.', 'error');
+}
+
+
+function renderModeCheckboxes(appliedModes) {
+    const container = document.getElementById('policyModeCheckboxes');
+    container.innerHTML = '';
+
+    POLICY_MODES.forEach(mode => {
+        const isChecked = appliedModes.includes(mode.value);
+        const label = document.createElement('label');
+        label.innerHTML = `
+            <input type="checkbox" name="policyMode" value="${mode.value}" ${isChecked ? 'checked' : ''}>
+            <span>${mode.label}</span>
+        `;
+        container.appendChild(label);
+    });
+}
+
+function openPolicyEditor(index) {
+    const app = applications[index];
+    currentEditingAppIndex = index;
+
+    document.getElementById('modalAppName').textContent = `Policy Editor for ${app.name}`;
+
+    renderModeCheckboxes(app.appliedModes || []);
+
+    let currentPriority = app.active === false ? 'block' : app.priority;
+    document.getElementById('prioritySelect').value = currentPriority || 'medium'; 
+
+    const dlSlider = document.getElementById('downloadLimitSlider');
+    const maxDownload = 100;
+    dlSlider.max = maxDownload;
+    dlSlider.value = app.downloadCap;
+    document.getElementById('downloadLimitValue').textContent = `${app.downloadCap} Mbps`;
+
+    const ulSlider = document.getElementById('uploadLimitSlider');
+    const maxUpload = 50;
+    ulSlider.max = maxUpload;
+    ulSlider.value = app.uploadCap;
+    document.getElementById('uploadLimitValue').textContent = `${app.uploadCap} Mbps`;
+
+    document.getElementById('policyModal').style.display = 'block';
+    showNotification(`Editing policy for ${app.name}`, 'info');
+}
+
+function updateLimitValue(type) {
+    const slider = document.getElementById(`${type}LimitSlider`);
+    document.getElementById(`${type}LimitValue`).textContent = `${slider.value} Mbps`;
+}
+
+function savePolicyChanges() {
+    if (currentEditingAppIndex === -1) {
+        closeModal();
+        return;
+    }
+
+    let app = applications[currentEditingAppIndex];
+    
+    const newPriority = document.getElementById('prioritySelect').value;
+    const newDownloadCap = parseInt(document.getElementById('downloadLimitSlider').value);
+    const newUploadCap = parseInt(document.getElementById('uploadLimitSlider').value);
+    
+    const selectedModes = Array.from(document.querySelectorAll('#policyModeCheckboxes input[name="policyMode"]:checked'))
+                               .map(cb => cb.value);
+
+    
+    // If the app is currently a permanent KILLED log entry, we must spawn a new active version
+    if (app.category === 'KILLED PROCESS') {
+        if (newPriority !== 'block') {
+            const indexToReplace = applications.findIndex(a => a.pid === app.pid);
+            const initialApp = getInitialApplicationState(app.name);
+            const pidToPreserve = app.pid;
+            
+            if (initialApp && indexToReplace !== -1) {
+                applications.splice(indexToReplace, 1);
+                const newActiveApp = JSON.parse(JSON.stringify(initialApp));
+                newActiveApp.pid = pidToPreserve;
+                applications.push(newActiveApp);
+                app = newActiveApp;
+            }
+        } else {
+            closeModal();
+            return;
+        }
+    }
+
+
+    // --- APPLY POLICIES ---
+    
+    if (newPriority === 'block') {
+         // Policy Wipe/Reset Action
+        app.active = false;
+        app.priority = 'low'; 
+        app.speedLimit = 'DEFAULT'; 
+        app.policyApplied = false;
+        app.appliedModes = [];
+        app.protocol = 'DEFAULT';
+        app.category = 'DEFAULT POLICY';
+        showNotification(`Policy for ${app.name} reset to system default.`, 'error');
+    } else {
+        // Active Policy Applied
+        app.active = true;
+        app.priority = newPriority;
+        app.downloadCap = newDownloadCap;
+        app.uploadCap = newUploadCap;
+        app.appliedModes = selectedModes;
+        app.protocol = initialApplications.find(i => i.name === app.name).protocol; // Restore native protocol
+        app.category = initialApplications.find(i => i.name === app.name).category; // Restore native category
+        
+        app.speedLimit = `${newDownloadCap} MB/s`; 
+        app.policyApplied = true;
+        
+        showNotification(`Policy for ${app.name} saved and applied successfully!`, 'success');
+    }
+
+    renderApplications('dashboard');
+    renderApplications('monitor');
+
+    closeModal();
+}
+
+function closeModal() {
+    document.getElementById('policyModal').style.display = 'none';
+    currentEditingAppIndex = -1;
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('policyModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+
+
+function setupEventListeners() {
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const sectionName = item.dataset.section;
+
+            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+
+            document.querySelectorAll('.dashboard-content').forEach(content => content.classList.remove('active-section'));
+            const targetContent = document.getElementById(sectionName);
+            if(targetContent) {
+                targetContent.classList.add('active-section');
+            }
+            
+            if (sectionName === 'monitor') {
+                renderApplications('monitor');
+            } else if (sectionName === 'dashboard') {
+                renderApplications('dashboard');
+            }
+
+            showNotification(`Switched to ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}`);
+        });
+    });
+
+    document.querySelectorAll('.time-filter').forEach(filter => {
+        filter.addEventListener('click', () => {
+            document.querySelectorAll('.time-filter').forEach(f => f.classList.remove('active'));
+            filter.classList.add('active');
+        });
+    });
+
+    document.getElementById('modeSelector').addEventListener('change', (e) => {
+        const selectedMode = e.target.value;
+        
+        applications.forEach(app => {
+            if (app.category !== 'KILLED PROCESS') { 
+                const shouldBeActive = app.appliedModes && app.appliedModes.includes(selectedMode);
+                
+                if (shouldBeActive) {
+                    app.active = true;
+                } else if (selectedMode !== 'custom') { 
+                    app.active = false;
+                    app.speed = "0 KB/s";
+                    app.uploadSpeed = "0 KB/s";
+                }
+            }
+        });
+        
+        renderApplications('dashboard');
+        renderApplications('monitor');
+        showNotification(`Mode switched to ${selectedMode.toUpperCase()}. Policies applied.`, 'info');
+    });
+
+    document.getElementById('statusDot').addEventListener('click', toggleNetworkStatus);
+}
+
+function updateModeSettings(mode) {
+    applications.forEach(app => {
+        if (app.active) {
+            if (mode === 'work' && ['Zoom Meeting', 'Teams'].includes(app.name)) {
+                app.priority = 'high';
+            } else if (mode === 'gaming' && app.name === 'Steam') {
+                app.priority = 'high';
+            } else if (mode === 'night') {
+                app.active = false;
+                app.speed = "0 KB/s";
+                app.uploadSpeed = "0 KB/s";
+            }
+        }
+    });
+    renderApplications('dashboard');
+    renderApplications('monitor');
+}
+
+function toggleNetworkStatus() {
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const statusIndicator = document.querySelector('.status-indicator');
+    const isOnline = statusDot.classList.contains('status-online');
+
+    if (isOnline) {
+        statusDot.classList.remove('status-online');
+        statusDot.classList.add('status-offline');
+        statusText.textContent = 'Offline';
+        statusText.style.color = '#ff3b30';
+        statusIndicator.style.background = 'rgba(255, 59, 48, 0.1)';
+        statusIndicator.style.borderColor = 'rgba(255, 59, 48, 0.2)';
+        showNotification('Network disconnected', 'error');
+    } else {
+        statusDot.classList.remove('status-offline');
+        statusDot.classList.add('status-online');
+        statusText.textContent = 'Online';
+        statusText.style.color = '#00c864';
+        statusIndicator.style.background = 'rgba(0, 200, 100, 0.1)';
+        statusIndicator.style.borderColor = 'rgba(0, 200, 100, 0.2)';
+        showNotification('Network connected', 'success');
     }
 }
 
 function showNotification(message, type = 'info') {
-    // Create notification element
     const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background: rgba(0, 245, 255, 0.9);
-        color: #000;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 600;
-        z-index: 10000;
-        animation: slideInRight 0.3s ease;
-    `;
-    
-    if (type === 'warning') {
-        notification.style.background = 'rgba(255, 0, 64, 0.9)';
-        notification.style.color = '#fff';
+    const style = document.createElement('style');
+
+    if (!document.querySelector('style[data-notification-styles]')) {
+        style.setAttribute('data-notification-styles', true);
+        style.textContent = `
+            @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        `;
+        document.head.appendChild(style);
     }
     
+    notification.style.cssText = `
+        position: fixed; top: 90px; right: 28px;
+        background: ${type === 'error' ? '#ff3b30' : type === 'success' ? '#00c864' : '#0066ff'};
+        color: white; padding: 14px 22px; border-radius: 12px; z-index: 2000;
+        animation: slideIn 0.3s ease-out;
+        box-shadow: 0 8px 24px ${type === 'error' ? 'rgba(255, 59, 48, 0.3)' : type === 'success' ? 'rgba(0, 200, 100, 0.3)' : 'rgba(0, 102, 255, 0.3)'};
+        font-weight: 600; font-size: 14px;
+    `;
+    notification.textContent = message;
     document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
     setTimeout(() => {
-        notification.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 300);
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
     }, 3000);
 }
 
-// Initialize Components
-function initializeComponents() {
-    // Load initial data
-    updateDashboard();
-    
-    // Add CSS animations
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-    document.head.appendChild(style);
+
+function startRealTimeUpdates() {
+    setInterval(() => {
+        updateStats();
+        updateApplicationSpeeds();
+        updateCharts();
+        updateBandwidthChart();
+        updateMonitorCharts(); 
+    }, 2000);
 }
 
-// Export functions for global access
-window.removeDownload = removeDownload;
+function updateCharts() {
+    downloadData.shift();
+    downloadData.push(45.2 + (Math.random() - 0.5) * 10);
+    downloadChart.data.datasets[0].data = downloadData;
+    downloadChart.update('none');
 
-console.log('📊 Network Scheduler JavaScript loaded successfully!');
+    uploadData.shift();
+    uploadData.push(12.8 + (Math.random() - 0.5) * 3);
+    uploadChart.data.datasets[0].data = uploadData;
+    uploadChart.update('none');
+
+    latencyData.shift();
+    latencyData.push(23 + (Math.random() - 0.5) * 10);
+    latencyChart.data.datasets[0].data = latencyData;
+    latencyChart.update('none');
+
+    efficiencyData.shift();
+    efficiencyData.push(94.2 + (Math.random() - 0.5) * 4);
+    efficiencyChart.data.datasets[0].data = efficiencyData;
+    efficiencyChart.update('none');
+}
+
+function updateBandwidthChart() {
+    const now = new Date();
+    bandwidthTimeData.push(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    bandwidthDownloadData.push(Math.random() * 30 + 20);
+    bandwidthUploadData.push(Math.random() * 15 + 5);
+    
+    if (bandwidthTimeData.length > 30) {
+        bandwidthTimeData.shift();
+        bandwidthDownloadData.shift();
+        bandwidthUploadData.shift();
+    }
+    
+    bandwidthChart.data.labels = bandwidthTimeData;
+    bandwidthChart.data.datasets[0].data = bandwidthDownloadData;
+    bandwidthChart.data.datasets[1].data = bandwidthUploadData;
+    bandwidthChart.update('none');
+}
+
+function updateMonitorCharts() {
+    const newTcp = Math.max(40, 60 + (Math.random() - 0.5) * 10);
+    const newUdp = Math.max(20, 30 + (Math.random() - 0.5) * 5);
+    const total = newTcp + newUdp;
+    protocolData = [newTcp, newUdp, 100 - total];
+    protocolDistributionChart.data.datasets[0].data = protocolData;
+    protocolDistributionChart.update('none');
+
+    packetLossData.shift();
+    packetLossData.push(Math.random() * 1.5 + 0.3);
+    packetLossChart.data.datasets[0].data = packetLossData;
+    packetLossChart.update('none');
+}
+
+function updateStats() {
+    document.getElementById('downloadSpeed').textContent = `${downloadData[downloadData.length - 1].toFixed(1)} MB/s`;
+    document.getElementById('uploadSpeed').textContent = `${uploadData[uploadData.length - 1].toFixed(1)} MB/s`;
+    document.getElementById('latency').textContent = `${Math.floor(latencyData[latencyData.length - 1])}ms`;
+    document.getElementById('efficiency').textContent = `${efficiencyData[efficiencyData.length - 1].toFixed(1)}%`;
+}
+
+function updateApplicationSpeeds() {
+    applications.forEach((app) => {
+        if (app.active) {
+            // Active: Apply Policy Caps (if applicable, otherwise default to full speed)
+            const maxDownloadMbps = app.downloadCap;
+            const maxUploadMbps = app.uploadCap;
+            
+            let newSpeedDownMBs = Math.min(maxDownloadMbps, maxDownloadMbps * 0.5 + (Math.random() * maxDownloadMbps * 0.4)) / 8;
+            let newSpeedUpMBs = Math.min(maxUploadMbps, maxUploadMbps * 0.5 + (Math.random() * maxUploadMbps * 0.4)) / 8;
+
+            let unitDown = 'MB/s';
+            let unitUp = 'MB/s';
+            
+            if (newSpeedDownMBs < 1) { newSpeedDownMBs *= 1024; unitDown = 'KB/s'; }
+            if (newSpeedUpMBs < 1) { newSpeedUpMBs *= 1024; unitUp = 'KB/s'; }
+
+            app.speed = `${newSpeedDownMBs.toFixed(newSpeedDownMBs < 10 ? 1 : 0)} ${unitDown}`;
+            app.uploadSpeed = `${newSpeedUpMBs.toFixed(newSpeedUpMBs < 10 ? 1 : 0)} ${unitUp}`;
+            
+        } else if (app.category === 'KILLED PROCESS') {
+            // Killed Process: Truly zero traffic
+            app.speed = "0 KB/s";
+            app.uploadSpeed = "0 KB/s";
+        } else {
+            // Paused or Default Policy (Policy removed/disabled but app is running)
+            // Revert to simulated default speeds.
+            const DEFAULT_DL_RATE = Math.random() * 0.5 + 0.1; 
+            const DEFAULT_UL_RATE = Math.random() * 0.1 + 0.05; 
+            
+            let newSpeedDownMBs = DEFAULT_DL_RATE;
+            let newSpeedUpMBs = DEFAULT_UL_RATE;
+
+            let unitDown = 'MB/s';
+            let unitUp = 'MB/s';
+            
+            if (newSpeedDownMBs < 1) { newSpeedDownMBs *= 1024; unitDown = 'KB/s'; }
+            if (newSpeedUpMBs < 1) { newSpeedUpMBs *= 1024; unitUp = 'KB/s'; }
+
+            app.speed = `${newSpeedDownMBs.toFixed(newSpeedDownMBs < 10 ? 1 : 0)} ${unitDown}`;
+            app.uploadSpeed = `${newSpeedUpMBs.toFixed(newSpeedUpMBs < 10 ? 1 : 0)} ${unitUp}`;
+        }
+    });
+    renderApplications('dashboard');
+    renderApplications('monitor');
+}
+
+document.addEventListener('DOMContentLoaded', initDashboard);
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+            case '1': e.preventDefault(); document.querySelector('[data-section="dashboard"]').click(); break;
+            case '2': e.preventDefault(); document.querySelector('[data-section="monitor"]').click(); break;
+            case '3': e.preventDefault(); document.querySelector('[data-section="bandwidth"]').click(); break;
+            case 'k': e.preventDefault(); emergencyKill(); break;
+        }
+    }
+});

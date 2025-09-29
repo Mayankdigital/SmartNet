@@ -3,475 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adaptive Network Scheduler</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>NetScheduler Pro: Adaptive Network Manager</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        /* Temporarily adding this style block to ensure the new filter is aligned */
+        .monitor-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .filter-dropdown {
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1.5px solid rgba(0, 102, 255, 0.3);
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            color: #1a2332;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .filter-dropdown:hover {
+            border-color: #0066ff;
+            box-shadow: 0 2px 10px rgba(0, 102, 255, 0.1);
+        }
+    </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Top Bar -->
-        <div class="top-bar">
-            <div class="app-title">
-                <span>⚡</span>
-                Adaptive Network Scheduler
-            </div>
-            <div class="network-status">
-                <div class="status-indicator"></div>
-                <span id="network-latency">Online • 45ms</span>
-                <select id="profile-selector">
-                    <option value="work">Work Profile</option>
-                    <option value="gaming">Gaming Profile</option>
-                    <option value="sleep">Sleep Mode</option>
-                </select>
-                <button class="kill-switch" id="kill-switch">KILL SWITCH</button>
-            </div>
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="app-logo">N</div>
+            <div class="app-name">NetScheduler Pro</div>
         </div>
+        <div class="nav-right">
+            <div class="status-indicator">
+                <div class="status-dot status-online" id="statusDot"></div>
+                <span id="statusText">Online</span>
+            </div>
+            <select class="mode-selector" id="modeSelector">
+                <option value="work">Work Mode</option>
+                <option value="gaming">Gaming Mode</option>
+                <option value="entertainment">Entertainment</option>
+                <option value="night">Night Mode</option>
+                <option value="custom">Custom</option>
+            </select>
+            <button class="kill-btn" onclick="emergencyKill()">Emergency Kill</button>
+        </div>
+    </nav>
 
-        <!-- Sidebar -->
+    <div class="main-container">
         <div class="sidebar">
-            <div class="nav-item active" data-section="dashboard">
-                <span class="nav-icon">🏠</span>
-                Dashboard
+            <div class="sidebar-item active" data-section="dashboard">
+                <div class="sidebar-icon">📊</div>
+                <span>Dashboard</span>
             </div>
-            <div class="nav-item" data-section="monitor">
-                <span class="nav-icon">📊</span>
-                Real-time Monitor
+            <div class="sidebar-item" data-section="monitor">
+                <div class="sidebar-icon">📡</div>
+                <span>Real-time Monitor</span>
             </div>
-            <div class="nav-item" data-section="bandwidth">
-                <span class="nav-icon">⚡</span>
-                Bandwidth Manager
+            <div class="sidebar-item" data-section="bandwidth">
+                <div class="sidebar-icon">🌐</div>
+                <span>Bandwidth Manager</span>
             </div>
-            <div class="nav-item" data-section="protocol">
-                <span class="nav-icon">🔄</span>
-                Protocol Engine
+            <div class="sidebar-item" data-section="protocol">
+                <div class="sidebar-icon">⚡</div>
+                <span>Protocol Engine</span>
             </div>
-            <div class="nav-item" data-section="scheduler">
-                <span class="nav-icon">⏰</span>
-                Smart Scheduler
+            <div class="sidebar-item" data-section="scheduler">
+                <div class="sidebar-icon">⏰</div>
+                <span>Smart Scheduler</span>
             </div>
-            <div class="nav-item" data-section="prefetch">
-                <span class="nav-icon">📁</span>
-                Prefetch Queue
+            <div class="sidebar-item" data-section="prefetch">
+                <div class="sidebar-icon">⬇️</div>
+                <span>Prefetch Queue</span>
             </div>
-            <div class="nav-item" data-section="profiles">
-                <span class="nav-icon">👤</span>
-                User Profiles
-            </div>
-            <div class="nav-item" data-section="settings">
-                <span class="nav-icon">⚙</span>
-                Settings
-            </div>
-            <div class="nav-item" data-section="analytics">
-                <span class="nav-icon">📈</span>
-                Analytics
+            <div class="sidebar-item" data-section="analytics">
+                <div class="sidebar-icon">📈</div>
+                <span>Analytics</span>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Dashboard Section -->
-            <div class="section active" id="dashboard">
-                <h2>Network Overview</h2>
-                
-                <div class="dashboard-grid">
-                    <!-- Network Health Widget -->
-                    <div class="widget network-health">
-                        <div class="widget-header">
-                            <h3 class="widget-title">Network Health</h3>
+        <div class="content-container">
+            <div class="dashboard-content active-section" id="dashboard">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">Download Speed</div>
+                            <div class="stat-icon">⬇️</div>
                         </div>
-                        <div class="health-circle">
-                            <span class="health-value" id="health-percentage">94%</span>
+                        <div class="stat-value" id="downloadSpeed">45.2 MB/s</div>
+                        <div class="stat-change positive">
+                            <span>↗</span>
+                            <span>12% from last hour</span>
                         </div>
-                        <div class="health-stats">
-                            <div>Latency: <span id="latency-stat">12ms</span></div>
-                            <div>Jitter: <span id="jitter-stat">2ms</span></div>
-                            <div>Loss: <span id="loss-stat">0.1%</span></div>
+                        <div class="mini-graph">
+                            <canvas id="downloadChart"></canvas>
                         </div>
                     </div>
 
-                    <!-- Active Apps -->
-                    <div class="widget">
-                        <div class="widget-header">
-                            <h3 class="widget-title">Active Applications</h3>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">Upload Speed</div>
+                            <div class="stat-icon">⬆️</div>
                         </div>
-                        <div id="active-apps-list">
-                            <!-- Dynamic content -->
+                        <div class="stat-value" id="uploadSpeed">12.8 MB/s</div>
+                        <div class="stat-change negative">
+                            <span>↘</span>
+                            <span>5% from last hour</span>
                         </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="widget">
-                        <div class="widget-header">
-                            <h3 class="widget-title">Quick Actions</h3>
-                        </div>
-                        <div class="quick-actions">
-                            <button class="action-btn" data-action="gaming">Gaming Mode</button>
-                            <button class="action-btn" data-action="work">Work Mode</button>
-                        </div>
-                        <div class="quick-actions">
-                            <button class="action-btn" data-action="sleep">Sleep Timer</button>
-                            <button class="action-btn" data-action="boost">Boost Priority</button>
+                        <div class="mini-graph">
+                            <canvas id="uploadChart"></canvas>
                         </div>
                     </div>
 
-                    <!-- Today's Stats -->
-                    <div class="widget">
-                        <div class="widget-header">
-                            <h3 class="widget-title">Today's Statistics</h3>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">Latency</div>
+                            <div class="stat-icon">⚡</div>
                         </div>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-value" id="data-used">2.3 GB</div>
-                                <div class="stat-label">Data Used</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="time-saved">47 min</div>
-                                <div class="stat-label">Time Saved</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="apps-managed">12</div>
-                                <div class="stat-label">Apps Managed</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="profile-switches">3</div>
-                                <div class="stat-label">Profile Switches</div>
-                            </div>
+                        <div class="stat-value" id="latency">23ms</div>
+                        <div class="stat-change positive">
+                            <span>↗</span>
+                            <span>8ms improvement</span>
+                        </div>
+                        <div class="mini-graph">
+                            <canvas id="latencyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">Network Efficiency</div>
+                            <div class="stat-icon">🎯</div>
+                        </div>
+                        <div class="stat-value" id="efficiency">94.2%</div>
+                        <div class="stat-change positive">
+                            <span>↗</span>
+                            <span>3.2% optimized</span>
+                        </div>
+                        <div class="mini-graph">
+                            <canvas id="efficiencyChart"></canvas>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Real-time Monitor Section -->
-            <div class="section" id="monitor">
-                <h2>Real-time Network Monitor</h2>
-                
-                <div class="monitor-layout">
-                    <div class="process-panel">
-                        <h3>Active Processes</h3>
-                        <div id="process-list">
-                            <!-- Dynamic process list -->
+                <div class="section-title">
+                    <div class="section-title-left">
+                        <div class="section-icon">🚀</div>
+                        Active Applications
+                    </div>
+                    <button class="refresh-btn" onclick="refreshApplications()">
+                        <span>🔄</span>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+
+                <div class="apps-container" id="appsContainer"></div>
+
+                <div class="bandwidth-section">
+                    <div class="graph-header">
+                        <h3>Bandwidth Usage Over Time</h3>
+                        <div class="time-filters">
+                            <div class="time-filter active" data-time="1h">1H</div>
+                            <div class="time-filter" data-time="1d">1D</div>
+                            <div class="time-filter" data-time="7d">7D</div>
+                            <div class="time-filter" data-time="1m">1M</div>
                         </div>
                     </div>
-
-                    <div class="graphs-panel">
-                        <h3>Network Utilization</h3>
+                    <div class="bandwidth-graph">
                         <div class="chart-container">
-                            <canvas id="bandwidth-chart"></canvas>
-                        </div>
-                        
-                        <h3>App Distribution</h3>
-                        <div class="chart-container">
-                            <canvas id="distribution-chart"></canvas>
+                            <canvas id="bandwidthChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Bandwidth Manager Section -->
-            <div class="section" id="bandwidth">
-                <h2>Bandwidth Allocation Manager</h2>
-                <div class="apps-grid" id="bandwidth-apps-grid">
-                    <!-- Dynamic app cards -->
+            <div class="dashboard-content" id="monitor">
+                <div class="monitor-header-row">
+                    <div class="section-title" style="margin-bottom: 0;">
+                        <div class="section-title-left">
+                            <div class="section-icon" style="background: linear-gradient(135deg, #ff9500, #ffcc00); box-shadow: 0 4px 15px rgba(255, 149, 0, 0.25);">📡</div>
+                            Real-time Process Monitoring
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select class="filter-dropdown" id="policyStatusFilter" onchange="renderApplications('monitor')">
+                            <option value="all">Policy Status: All</option>
+                            <option value="applied">Policy Applied (✅)</option>
+                            <option value="default">Default/Killed (❌)</option>
+                        </select>
+                        <button class="refresh-btn" onclick="refreshApplications()">
+                            <span>🔍</span>
+                            <span>Rescan Processes</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Protocol Engine Section -->
-            <div class="section" id="protocol">
-                <h2>Dynamic Protocol Engine</h2>
                 
-                <div class="protocol-content">
-                    <div class="widget">
-                        <h3 class="widget-title">Protocol Status Matrix</h3>
-                        <div class="protocol-table">
-                            <table id="protocol-matrix">
-                                <thead>
-                                    <tr>
-                                        <th>Application</th>
-                                        <th>Current Protocol</th>
-                                        <th>Fallback</th>
-                                        <th>Reason</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Dynamic content -->
-                                </tbody>
-                            </table>
-                        </div>
+                <div class="apps-container" id="monitorAppsContainer">
                     </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Network Conditions</h3>
-                        <div class="conditions-grid">
-                            <div class="condition-item">
-                                <div class="condition-label">Latency</div>
-                                <div class="condition-value" id="condition-latency">12ms</div>
-                                <div class="bandwidth-bar">
-                                    <div class="bandwidth-fill" id="latency-bar"></div>
-                                </div>
-                            </div>
-                            <div class="condition-item">
-                                <div class="condition-label">Jitter</div>
-                                <div class="condition-value" id="condition-jitter">2ms</div>
-                                <div class="bandwidth-bar">
-                                    <div class="bandwidth-fill" id="jitter-bar"></div>
-                                </div>
-                            </div>
-                            <div class="condition-item">
-                                <div class="condition-label">Packet Loss</div>
-                                <div class="condition-value" id="condition-loss">0.1%</div>
-                                <div class="bandwidth-bar">
-                                    <div class="bandwidth-fill" id="loss-bar"></div>
-                                </div>
-                            </div>
-                            <div class="condition-item">
-                                <div class="condition-label">Stability</div>
-                                <div class="condition-value" id="condition-stability">Excellent</div>
-                                <div class="bandwidth-bar">
-                                    <div class="bandwidth-fill" id="stability-bar"></div>
-                                </div>
-                            </div>
-                        </div>
+                
+                <div class="section-title" style="margin-top: 32px;">
+                    <div class="section-title-left">
+                        <div class="section-icon" style="background: linear-gradient(135deg, #34c759, #6dd68e); box-shadow: 0 4px 15px rgba(52, 199, 89, 0.25);">⚙️</div>
+                        System Network Load
                     </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Protocol Switch History</h3>
-                        <div class="switch-history" id="switch-history">
-                            <!-- Dynamic switch history -->
-                        </div>
+                </div>
+                <div class="bandwidth-section">
+                    <p style="font-size: 14px; color: #7a8a99; margin-bottom: 16px;">System-wide packet and protocol distribution, critical for dynamic switching decisions.</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div><canvas id="protocolDistributionChart" height="200"></canvas></div>
+                        <div><canvas id="packetLossChart" height="200"></canvas></div>
                     </div>
                 </div>
             </div>
+            
+            <div class="dashboard-content" id="bandwidth"></div>
+            <div class="dashboard-content" id="protocol"></div>
+            <div class="dashboard-content" id="scheduler"></div>
+            <div class="dashboard-content" id="prefetch"></div>
+            <div class="dashboard-content" id="analytics"></div>
+        </div>
+    </div>
 
-            <!-- Smart Scheduler Section -->
-            <div class="section" id="scheduler">
-                <h2>Smart Wi-Fi Scheduler</h2>
-                
-                <div class="scheduler-content">
-                    <div class="widget">
-                        <h3 class="widget-title">Weekly Schedule</h3>
-                        <div class="schedule-grid" id="weekly-schedule">
-                            <!-- Dynamic schedule grid -->
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Quick Sleep Timers</h3>
-                        <div class="timer-buttons">
-                            <button class="action-btn" data-timer="30">30 Minutes</button>
-                            <button class="action-btn" data-timer="60">1 Hour</button>
-                            <button class="action-btn" data-timer="120">2 Hours</button>
-                            <button class="action-btn" data-timer="until-6am">Until 6 AM</button>
-                        </div>
-                        
-                        <div class="active-timer" id="active-timer">
-                            <div class="timer-display">
-                                <span>Active Timer:</span>
-                                <span class="timer-value" id="timer-countdown">--:--</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Sleep Mode Automation</h3>
-                        <div class="sleep-settings">
-                            <div class="time-inputs">
-                                <div class="input-group">
-                                    <label>Bedtime</label>
-                                    <input type="time" id="bedtime" value="23:00">
-                                </div>
-                                <div class="input-group">
-                                    <label>Wake Time</label>
-                                    <input type="time" id="wake-time" value="07:00">
-                                </div>
-                            </div>
-                            
-                            <div class="automation-options">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="auto-cutoff" checked>
-                                    <span>Enable automatic Wi-Fi cutoff</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="allow-updates" checked>
-                                    <span>Allow system updates during sleep</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="block-social">
-                                    <span>Block social media apps after bedtime</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <div id="policyModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalAppName">Policy Editor</h3>
+                <span class="close-btn" onclick="closeModal()">&times;</span>
             </div>
-
-            <!-- Prefetch Queue Section -->
-            <div class="section" id="prefetch">
-                <h2>Prefetch Download Queue</h2>
+            <div class="modal-body">
                 
-                <div class="prefetch-content">
-                    <div class="widget">
-                        <div class="widget-header-with-action">
-                            <h3 class="widget-title">Download Queue</h3>
-                            <button class="action-btn" id="add-download">Add Download</button>
-                        </div>
-                        <div id="download-queue">
-                            <!-- Dynamic download queue -->
-                        </div>
+                <h4>Apply Policy To Modes</h4>
+                <div class="mode-checkbox-group" id="policyModeCheckboxes">
                     </div>
+                
+                <h4>Bandwidth Priority Class (OS Scheduling)</h4>
+                <select id="prioritySelect">
+                    <option value="critical">Critical (Max Guarantee)</option>
+                    <option value="high">High (Video/Voice)</option>
+                    <option value="medium">Medium (Browsing/Streaming)</option>
+                    <option value="low">Low (Background Downloads)</option>
+                    <option value="block">Block (No Access)</option>
+                </select>
 
-                    <div class="widget">
-                        <h3 class="widget-title">Performance Improvements</h3>
-                        <div class="performance-metrics">
-                            <div class="metric-item">
-                                <div class="metric-value">34%</div>
-                                <div class="metric-label">Latency Reduction</div>
-                                <div class="metric-subtitle">vs unmanaged network</div>
-                            </div>
-                            <div class="metric-item">
-                                <div class="metric-value">2.3 GB</div>
-                                <div class="metric-label">Data Saved</div>
-                                <div class="metric-subtitle">through smart scheduling</div>
-                            </div>
-                            <div class="metric-item">
-                                <div class="metric-value">47</div>
-                                <div class="metric-label">Minutes Saved</div>
-                                <div class="metric-subtitle">in download time</div>
-                            </div>
-                            <div class="metric-item">
-                                <div class="metric-value">89%</div>
-                                <div class="metric-label">App Stability</div>
-                                <div class="metric-subtitle">improved connections</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">AI Recommendations</h3>
-                        <div class="recommendations" id="ai-recommendations">
-                            <!-- Dynamic recommendations -->
-                        </div>
-                    </div>
+                <div class="slider-group">
+                    <label>Download Limit:</label>
+                    <input type="range" id="downloadLimitSlider" min="0" max="100" step="1" value="50" oninput="updateLimitValue('download')">
+                    <span id="downloadLimitValue">50 Mbps</span>
                 </div>
+                
+                <div class="slider-group">
+                    <label>Upload Limit:</label>
+                    <input type="range" id="uploadLimitSlider" min="0" max="50" step="1" value="10" oninput="updateLimitValue('upload')">
+                    <span id="uploadLimitValue">10 Mbps</span>
+                </div>
+
+                <p class="hint">Note: Sliders cap at theoretical maximum for demonstration.</p>
             </div>
-
-            <!-- User Profiles Section -->
-            <div class="section" id="profiles">
-                <h2>User Profiles</h2>
-                
-                <div class="profiles-container" id="profiles-container">
-                    <!-- Dynamic profile cards -->
-                </div>
-            </div>
-
-            <!-- Settings Section -->
-            <div class="section" id="settings">
-                <h2>Settings</h2>
-                
-                <div class="settings-content">
-                    <div class="widget">
-                        <h3 class="widget-title">Network Interfaces</h3>
-                        <div class="settings-group">
-                            <div class="setting-item">
-                                <label>Primary Connection</label>
-                                <select id="primary-interface">
-                                    <option>Wi-Fi (802.11ac)</option>
-                                    <option>Ethernet</option>
-                                    <option>Mobile Hotspot</option>
-                                </select>
-                            </div>
-                            <div class="setting-item">
-                                <label>Backup Connection</label>
-                                <select id="backup-interface">
-                                    <option>Mobile Hotspot</option>
-                                    <option>Wi-Fi</option>
-                                    <option>None</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Notifications</h3>
-                        <div class="settings-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" checked>
-                                <span>Network status changes</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" checked>
-                                <span>Profile switches</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox">
-                                <span>Download completions</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" checked>
-                                <span>Performance alerts</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Advanced Settings</h3>
-                        <div class="settings-group">
-                            <div class="setting-item">
-                                <label>Monitoring Interval</label>
-                                <select>
-                                    <option>1 second</option>
-                                    <option selected>5 seconds</option>
-                                    <option>10 seconds</option>
-                                </select>
-                            </div>
-                            <div class="setting-item">
-                                <label>Buffer Size</label>
-                                <select>
-                                    <option>64 KB</option>
-                                    <option selected>128 KB</option>
-                                    <option>256 KB</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Analytics Section -->
-            <div class="section" id="analytics">
-                <h2>Analytics Dashboard</h2>
-                
-                <div class="analytics-content">
-                    <div class="widget">
-                        <h3 class="widget-title">Usage Trends</h3>
-                        <div class="chart-container">
-                            <canvas id="usage-trends-chart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">App Performance Impact</h3>
-                        <div id="app-performance-list">
-                            <!-- Dynamic performance data -->
-                        </div>
-                    </div>
-
-                    <div class="widget">
-                        <h3 class="widget-title">Network Efficiency</h3>
-                        <div class="efficiency-metrics">
-                            <div class="efficiency-item">
-                                <div class="efficiency-value">23%</div>
-                                <div class="efficiency-label">Bandwidth Saved</div>
-                            </div>
-                            <div class="efficiency-item">
-                                <div class="efficiency-value">156</div>
-                                <div class="efficiency-label">Optimizations Applied</div>
-                            </div>
-                            <div class="efficiency-item">
-                                <div class="efficiency-value">94%</div>
-                                <div class="efficiency-label">Uptime Score</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="modal-footer">
+                <button class="save-btn" onclick="savePolicyChanges()">Save Changes</button>
             </div>
         </div>
     </div>
