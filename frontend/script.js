@@ -1,3 +1,37 @@
+let liveStats = { download: 0, upload: 0, latency: 0, efficiency: 0 };
+
+// Connect to the Python WebSocket server
+const socket = new WebSocket('ws://localhost:8765');
+
+socket.onopen = function(e) {
+    console.log("[open] Connection established to NetScheduler Pro backend.");
+};
+
+socket.onmessage = function(event) {
+    try {
+        const data = JSON.parse(event.data);
+        liveStats.download = data.downloadSpeed;
+        liveStats.upload = data.uploadSpeed;
+        liveStats.latency = data.latency;
+        liveStats.efficiency = data.efficiency;
+    } catch (error) {
+        console.error("Error parsing message from backend:", error);
+    }
+};
+
+socket.onclose = function(event) {
+    if (event.wasClean) {
+        console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+    } else {
+        console.error('[close] Connection died');
+        showNotification('Backend connection lost!', 'error');
+    }
+};
+
+socket.onerror = function(error) {
+    console.error(`[error] ${error.message}`);
+    showNotification('Could not connect to backend!', 'error');
+};
 const initialApplications = [ 
     {
         name: "Zoom Meeting",
@@ -700,26 +734,28 @@ function startRealTimeUpdates() {
     }, 2000);
 }
 
-function updateCharts() {
+    function updateCharts() {
+    // Push live data to the chart arrays
     downloadData.shift();
-    downloadData.push(45.2 + (Math.random() - 0.5) * 10);
+    downloadData.push(liveStats.download);
     downloadChart.data.datasets[0].data = downloadData;
     downloadChart.update('none');
 
     uploadData.shift();
-    uploadData.push(12.8 + (Math.random() - 0.5) * 3);
+    uploadData.push(liveStats.upload);
     uploadChart.data.datasets[0].data = uploadData;
     uploadChart.update('none');
 
     latencyData.shift();
-    latencyData.push(23 + (Math.random() - 0.5) * 10);
+    latencyData.push(liveStats.latency);
     latencyChart.data.datasets[0].data = latencyData;
     latencyChart.update('none');
 
     efficiencyData.shift();
-    efficiencyData.push(94.2 + (Math.random() - 0.5) * 4);
+    efficiencyData.push(liveStats.efficiency);
     efficiencyChart.data.datasets[0].data = efficiencyData;
     efficiencyChart.update('none');
+
 }
 
 function updateBandwidthChart() {
@@ -755,11 +791,13 @@ function updateMonitorCharts() {
 }
 
 function updateStats() {
-    document.getElementById('downloadSpeed').textContent = `${downloadData[downloadData.length - 1].toFixed(1)} MB/s`;
-    document.getElementById('uploadSpeed').textContent = `${uploadData[uploadData.length - 1].toFixed(1)} MB/s`;
-    document.getElementById('latency').textContent = `${Math.floor(latencyData[latencyData.length - 1])}ms`;
-    document.getElementById('efficiency').textContent = `${efficiencyData[efficiencyData.length - 1].toFixed(1)}%`;
+    // Use live data from the WebSocket
+    document.getElementById('downloadSpeed').textContent = `${liveStats.download.toFixed(1)} MB/s`;
+    document.getElementById('uploadSpeed').textContent = `${liveStats.upload.toFixed(1)} MB/s`;
+    document.getElementById('latency').textContent = `${Math.floor(liveStats.latency)}ms`;
+    document.getElementById('efficiency').textContent = `${liveStats.efficiency.toFixed(1)}%`;
 }
+
 
 function updateApplicationSpeeds() {
     applications.forEach((app) => {
