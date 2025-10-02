@@ -456,10 +456,22 @@ function toggleApp(index) {
     showNotification(`${app.name} ${app.active ? 'resumed' : 'paused'}`, app.active ? 'success' : 'error');
 }
 
+// REPLACE this entire function in script.js
 function killApp(index) {
     let appToKill = applications[index];
     if (!appToKill) return;
 
+    // NEW: Send delete command to the backend
+    if (socket.readyState === WebSocket.OPEN) {
+        const message = {
+            action: 'delete_policy',
+            payload: { name: appToKill.name }
+        };
+        socket.send(JSON.stringify(message));
+        console.log("Sent delete_policy command for:", appToKill.name);
+    }
+
+    // Reset the local state (this part is the same as before)
     appToKill.active = false;
     appToKill.priority = 'low'; 
     appToKill.speedLimit = 'DEFAULT';
@@ -467,11 +479,11 @@ function killApp(index) {
     appToKill.appliedModes = [];
     appToKill.protocol = 'DEFAULT';
     appToKill.category = 'DEFAULT POLICY';
-    
+
     renderApplications('dashboard');
     renderApplications('monitor');
 
-    showNotification(`${appToKill.name} policy reset to system default.`, 'error');
+    showNotification(`${appToKill.name} policy has been reset and removed.`, 'error');
 }
 
 function emergencyKill() {
@@ -538,6 +550,9 @@ function updateLimitValue(type) {
     document.getElementById(`${type}LimitValue`).textContent = `${slider.value} Mbps`;
 }
 
+// REPLACE the entire savePolicyChanges function with this one
+
+// REPLACE this entire function in script.js
 function savePolicyChanges() {
     if (currentEditingAppIndex === -1) {
         closeModal();
@@ -546,13 +561,24 @@ function savePolicyChanges() {
 
     let app = applications[currentEditingAppIndex];
     if (!app) return;
-    
+
     const newPriority = document.getElementById('prioritySelect').value;
     const newDownloadCap = parseInt(document.getElementById('downloadLimitSlider').value);
     const newUploadCap = parseInt(document.getElementById('uploadLimitSlider').value);
     const selectedModes = Array.from(document.querySelectorAll('#policyModeCheckboxes input[name="policyMode"]:checked')).map(cb => cb.value);
-    
+
     if (newPriority === 'block') {
+        // NEW: Send delete command to the backend when blocking
+        if (socket.readyState === WebSocket.OPEN) {
+            const message = {
+                action: 'delete_policy',
+                payload: { name: app.name }
+            };
+            socket.send(JSON.stringify(message));
+            console.log("Sent delete_policy command via 'Block' for:", app.name);
+        }
+
+        // Reset local state (same as before)
         app.active = false;
         app.priority = 'low'; 
         app.speedLimit = 'DEFAULT'; 
@@ -560,8 +586,9 @@ function savePolicyChanges() {
         app.appliedModes = [];
         app.protocol = 'DEFAULT';
         app.category = 'DEFAULT POLICY';
-        showNotification(`Policy for ${app.name} reset to system default.`, 'error');
+        showNotification(`Policy for ${app.name} has been reset and removed.`, 'error');
     } else {
+        // Update the app's state in the frontend
         app.active = true;
         app.priority = newPriority;
         app.downloadCap = newDownloadCap;
@@ -571,7 +598,26 @@ function savePolicyChanges() {
         app.category = "System Process";
         app.speedLimit = `${newDownloadCap} MB/s`; 
         app.policyApplied = true;
-        
+
+        // Send the policy data to the backend to be saved
+        if (socket.readyState === WebSocket.OPEN) {
+            const policyPayload = {
+                name: app.name,
+                priority: app.priority,
+                downloadCap: app.downloadCap,
+                uploadCap: app.uploadCap,
+                appliedModes: app.appliedModes
+            };
+            const message = {
+                action: 'save_policy',
+                payload: policyPayload
+            };
+            socket.send(JSON.stringify(message));
+            console.log("Sent save_policy data to backend:", policyPayload);
+        } else {
+            console.error("Cannot save policy, WebSocket is not open.");
+        }
+
         showNotification(`Policy for ${app.name} saved and applied successfully!`, 'success');
     }
 
