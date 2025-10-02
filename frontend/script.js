@@ -1,16 +1,33 @@
 let liveStats = { download: 0, upload: 0, latency: 0, efficiency: 0 };
+// --- NEW: A place to store policies loaded from Firebase ---
+let savedPolicies = {};
 
 // Connect to the Python WebSocket server
 const socket = new WebSocket('ws://localhost:8765');
 
 socket.onopen = function(e) {
     console.log("[open] Connection established to NetScheduler Pro backend.");
+    // --- NEW: Request saved policies as soon as the connection is open ---
+    socket.send('get_all_policies');
 };
 
 socket.onmessage = function(event) {
     try {
         const data = JSON.parse(event.data);
         
+        // --- NEW: Handle the response from the backend containing all policies ---
+        if (data.action === 'load_policies') {
+            console.log("Received saved policies from backend:", data.payload);
+            // Store policies in a map for easy, case-insensitive lookup
+            data.payload.forEach(policy => {
+                savedPolicies[policy.name.toLowerCase()] = policy;
+            });
+            // Apply the loaded policies to any already-listed applications
+            applySavedPolicies();
+            return; // Stop processing this specific message type here
+        }
+        // --- END NEW ---
+
         // 1. Update global stats
         liveStats.download = data.globalStats.downloadSpeed;
         liveStats.upload = data.globalStats.uploadSpeed;
@@ -48,10 +65,30 @@ function generateColorFromString(str) {
     return `linear-gradient(135deg, ${color}, #222)`;
 }
 
-// This is the LATEST version of the function with the toggle switch FIX
+// --- NEW HELPER FUNCTION ---
+function applySavedPolicies() {
+    // This function merges the loaded policies into the live `applications` array
+    applications.forEach(app => {
+        const savedPolicy = savedPolicies[app.name.toLowerCase()];
+        if (savedPolicy && !app.policyApplied) { // Apply only if not already applied
+             console.log(`Applying loaded policy for ${app.name}`);
+             app.priority = savedPolicy.priority;
+             app.downloadCap = savedPolicy.downloadCap;
+             app.uploadCap = savedPolicy.uploadCap;
+             app.appliedModes = savedPolicy.appliedModes || [];
+             app.speedLimit = `${savedPolicy.downloadCap} MB/s`;
+             app.policyApplied = true;
+        }
+    });
+    // Re-render to show the applied policies
+    const activeSection = document.querySelector('.sidebar-item.active').dataset.section;
+    if (activeSection === 'monitor' || activeSection === 'dashboard') {
+        renderApplications(activeSection);
+    }
+}
+
+
 function updateProcessList(backendProcesses) {
-    // --- THE FIX IS ON THIS LINE ---
-    // We now convert all incoming names to lowercase to ensure case-insensitive matching.
     const backendNames = new Set(backendProcesses.map(p => p.name.toLowerCase()));
 
     backendProcesses.forEach(proc => {
@@ -70,10 +107,9 @@ function updateProcessList(backendProcesses) {
         const currentSpeedUp = `${upSpeed.toFixed(upSpeed > 0 ? 1 : 0)} ${upUnit}`;
 
         if (existingApp) {
-            // Update live data ONLY.
             existingApp.speed = currentSpeedDown;
             existingApp.uploadSpeed = currentSpeedUp;
-            existingApp.pid = proc.pid; // This holds the instance count
+            existingApp.pid = proc.pid;
         } else {
             // Add new process with default settings
             const newApp = {
@@ -86,25 +122,38 @@ function updateProcessList(backendProcesses) {
                 uploadSpeed: currentSpeedUp,
                 priority: "medium",
                 speedLimit: "No Limit",
-                active: true, // New apps are active by default
+                active: true,
                 color: generateColorFromString(cleanProcName),
                 downloadCap: 100,
                 uploadCap: 50,
                 appliedModes: [],
                 policyApplied: false
             };
+            
+            // --- MODIFIED: Check for a saved policy and override defaults ---
+            const savedPolicy = savedPolicies[cleanProcName.toLowerCase()];
+            if (savedPolicy) {
+                console.log(`Applying saved policy for new process ${cleanProcName}`);
+                newApp.priority = savedPolicy.priority;
+                newApp.downloadCap = savedPolicy.downloadCap;
+                newApp.uploadCap = savedPolicy.uploadCap;
+                newApp.appliedModes = savedPolicy.appliedModes || [];
+                newApp.speedLimit = `${savedPolicy.downloadCap} MB/s`;
+                newApp.policyApplied = true;
+            }
+            // --- END MODIFICATION ---
+
             applications.push(newApp);
         }
     });
 
-    // This check now works correctly with the case-insensitive backendNames Set
     applications.forEach(app => {
         const exeName = app.name.toLowerCase() + '.exe';
         if (!backendNames.has(exeName) && !backendNames.has(app.name.toLowerCase()) && app.active) {
             if (app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY') {
-                 app.active = false;
-                 app.speed = "0 KB/s";
-                 app.uploadSpeed = "0 KB/s";
+                app.active = false;
+                app.speed = "0 KB/s";
+                app.uploadSpeed = "0 KB/s";
             }
         }
     });
@@ -125,8 +174,6 @@ socket.onerror = function(error) {
     showNotification('Could not connect to backend!', 'error');
 };
 
-const initialApplications = [];
-
 let applications = [];
 
 const POLICY_MODES = [
@@ -136,6 +183,9 @@ const POLICY_MODES = [
     { value: 'night', label: 'Night Mode' },
     { value: 'custom', label: 'Custom' }
 ];
+
+// --- The rest of the file remains largely the same, except for emergencyKill ---
+// --- I'm including the full file for completeness. ---
 
 function getInitialApplicationState(name) {
     const initial = initialApplications.find(app => app.name === name);
@@ -172,10 +222,8 @@ let efficiencyData = Array(10).fill(0);
 let bandwidthTimeData = [];
 let bandwidthDownloadData = [];
 let bandwidthUploadData = [];
-
 let protocolData = [34, 33, 33];
 let packetLossData = Array(7).fill(0);
-
 let currentEditingAppIndex = -1;
 
 function initDashboard() {
@@ -187,75 +235,15 @@ function initDashboard() {
 }
 
 function initializeCharts() {
-    const miniChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { x: { display: false }, y: { display: false } },
-        elements: {
-            line: { tension: 0.4, borderWidth: 2 },
-            point: { radius: 0 }
-        }
-    };
-
+    const miniChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } }, elements: { line: { tension: 0.4, borderWidth: 2 }, point: { radius: 0 } } };
     downloadChart = new Chart(document.getElementById('downloadChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: downloadData, borderColor: '#0066ff', backgroundColor: 'rgba(0, 102, 255, 0.1)', fill: true }] }, options: miniChartOptions });
     uploadChart = new Chart(document.getElementById('uploadChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: uploadData, borderColor: '#00c864', backgroundColor: 'rgba(0, 200, 100, 0.1)', fill: true }] }, options: miniChartOptions });
     latencyChart = new Chart(document.getElementById('latencyChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: latencyData, borderColor: '#ff9500', backgroundColor: 'rgba(255, 149, 0, 0.1)', fill: true }] }, options: miniChartOptions });
     efficiencyChart = new Chart(document.getElementById('efficiencyChart'), { type: 'line', data: { labels: Array(10).fill(''), datasets: [{ data: efficiencyData, borderColor: '#5e5ce6', backgroundColor: 'rgba(94, 92, 230, 0.1)', fill: true }] }, options: miniChartOptions });
-
-    bandwidthChart = new Chart(document.getElementById('bandwidthChart'), {
-        type: 'line',
-        data: {
-            labels: bandwidthTimeData,
-            datasets: [
-                { label: 'Download', data: bandwidthDownloadData, borderColor: '#0066ff', backgroundColor: 'rgba(0, 102, 255, 0.1)', fill: true, tension: 0.4 },
-                { label: 'Upload', data: bandwidthUploadData, borderColor: '#00c864', backgroundColor: 'rgba(0, 200, 100, 0.1)', fill: true, tension: 0.4 }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: true, position: 'top', labels: { color: '#1a2332', usePointStyle: true } } },
-            scales: { x: { grid: { color: 'rgba(0, 100, 255, 0.1)' }, ticks: { color: '#7a8a99' } }, y: { grid: { color: 'rgba(0, 100, 255, 0.1)' }, ticks: { color: '#7a8a99' } } },
-            elements: { line: { borderWidth: 3 }, point: { radius: 4, hoverRadius: 6 } }
-        }
-    });
-
-    protocolDistributionChart = new Chart(document.getElementById('protocolDistributionChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['TCP', 'UDP', 'HTTP/2 & Other'],
-            datasets: [{
-                data: protocolData,
-                backgroundColor: ['#0066ff', '#ff9500', '#5e5ce6'],
-                hoverOffset: 4
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { title: { display: true, text: 'Protocol Distribution (%)', color: '#1a2332', font: { size: 14 } }, legend: { position: 'bottom', labels: { color: '#7a8a99' } } }
-        }
-    });
-
-    packetLossChart = new Chart(document.getElementById('packetLossChart'), {
-        type: 'bar',
-        data: {
-            labels: ['0', '-10', '-20', '-30', '-40', '-50', '-60'], 
-            datasets: [{
-                label: 'Packet Loss (%)',
-                data: packetLossData,
-                backgroundColor: '#ff3b30',
-                borderColor: '#ff3b30',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { title: { display: true, text: 'Packet Loss Rate (%)', color: '#1a2332', font: { size: 14 } }, legend: { display: false } },
-            scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 2.0 } }
-        }
-    });
+    bandwidthChart = new Chart(document.getElementById('bandwidthChart'), { type: 'line', data: { labels: bandwidthTimeData, datasets: [ { label: 'Download', data: bandwidthDownloadData, borderColor: '#0066ff', backgroundColor: 'rgba(0, 102, 255, 0.1)', fill: true, tension: 0.4 }, { label: 'Upload', data: bandwidthUploadData, borderColor: '#00c864', backgroundColor: 'rgba(0, 200, 100, 0.1)', fill: true, tension: 0.4 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { color: '#1a2332', usePointStyle: true } } }, scales: { x: { grid: { color: 'rgba(0, 100, 255, 0.1)' }, ticks: { color: '#7a8a99' } }, y: { grid: { color: 'rgba(0, 100, 255, 0.1)' }, ticks: { color: '#7a8a99' } } }, elements: { line: { borderWidth: 3 }, point: { radius: 4, hoverRadius: 6 } } } });
+    protocolDistributionChart = new Chart(document.getElementById('protocolDistributionChart'), { type: 'doughnut', data: { labels: ['TCP', 'UDP', 'HTTP/2 & Other'], datasets: [{ data: protocolData, backgroundColor: ['#0066ff', '#ff9500', '#5e5ce6'], hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Protocol Distribution (%)', color: '#1a2332', font: { size: 14 } }, legend: { position: 'bottom', labels: { color: '#7a8a99' } } } } });
+    packetLossChart = new Chart(document.getElementById('packetLossChart'), { type: 'bar', data: { labels: ['0', '-10', '-20', '-30', '-40', '-50', '-60'], datasets: [{ label: 'Packet Loss (%)', data: packetLossData, backgroundColor: '#ff3b30', borderColor: '#ff3b30', borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Packet Loss Rate (%)', color: '#1a2332', font: { size: 14 } }, legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, max: 2.0 } } } });
 }
-
 
 function generateInitialBandwidthData() {
     const now = new Date();
@@ -267,8 +255,6 @@ function generateInitialBandwidthData() {
     }
 }
 
-// REPLACE the entire renderApplications function with this one
-
 function renderApplications(view) {
     const containerId = view === 'monitor' ? 'monitorAppsContainer' : 'appsContainer';
     const container = document.getElementById(containerId);
@@ -276,41 +262,28 @@ function renderApplications(view) {
 
     container.innerHTML = '';
     
-    let listToRender = applications; 
+    let listToRender = [...applications].sort((a, b) => a.name.localeCompare(b.name));
     
     if (view === 'dashboard') {
-        listToRender = applications.filter(app => app.policyApplied === true);
-
+        listToRender = listToRender.filter(app => app.policyApplied === true);
         if (listToRender.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state-message">
-                    <div class="empty-state-icon">🛡️</div>
-                    <h3>No Policies Applied</h3>
-                    <p>Go to the <b>Real-time Monitor</b> tab to apply a policy to an application. It will then appear here.</p>
-                </div>
-            `;
+            container.innerHTML = `<div class="empty-state-message"><div class="empty-state-icon">🛡️</div><h3>No Policies Applied</h3><p>Go to the <b>Real-time Monitor</b> tab to apply a policy to an application. It will then appear here.</p></div>`;
             return;
         }
     }
     
     if (view === 'monitor') {
-        // --- NEW: Search Filter Logic ---
         const searchInput = document.getElementById('processSearchInput');
         const searchTerm = searchInput.value.toLowerCase().trim();
-
         if (searchTerm) {
-            listToRender = listToRender.filter(app => 
-                app.name.toLowerCase().includes(searchTerm)
-            );
+            listToRender = listToRender.filter(app => app.name.toLowerCase().includes(searchTerm));
         }
-        // --- End of Search Logic ---
-
 
         const filterValue = document.getElementById('policyStatusFilter').value;
         if (filterValue === 'applied') {
             listToRender = listToRender.filter(app => app.policyApplied === true && app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY');
         } else if (filterValue === 'default') {
-            listToRender = listToRender.filter(app => app.policyApplied === false || app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY');
+            listToRender = listToRender.filter(app => !app.policyApplied || app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY');
         }
     }
 
@@ -326,83 +299,24 @@ function renderApplications(view) {
         appElement.className = `app-item ${statusClass}`;
 
         let appInfoContent;
-
-        const modesDisplay = app.appliedModes && app.appliedModes.length > 0
-            ? `<span class="app-mode-badge">${app.appliedModes.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}</span>`
-            : '';
-        
-        const policyCheckMarkMonitor = app.policyApplied 
-            ? `<span style="color: #00c864; font-size: 16px; margin-left: 8px;">✅</span>`
-            : '';
+        const modesDisplay = app.appliedModes && app.appliedModes.length > 0 ? `<span class="app-mode-badge">${app.appliedModes.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}</span>` : '';
+        const policyCheckMarkMonitor = app.policyApplied ? `<span style="color: #00c864; font-size: 16px; margin-left: 8px;">✅</span>` : '';
 
         if (view === 'monitor') {
             const speedDisplayDown = `⬇️ ${app.speed}`;
             const speedDisplayUp = `⬆️ ${app.uploadSpeed}`;
             const protocolDisplay = app.active ? app.protocol.split('/')[0] : app.protocol;
-            
             let downloadColor, uploadColor;
+            if (app.category === 'KILLED PROCESS') { downloadColor = '#ff3b30'; uploadColor = '#ff3b30'; }
+            else if (app.active) { downloadColor = '#00c864'; uploadColor = '#ff9500'; }
+            else { downloadColor = '#7a8a99'; uploadColor = '#7a8a99'; }
             
-            if (app.category === 'KILLED PROCESS') {
-                downloadColor = '#ff3b30';
-                uploadColor = '#ff3b30'; 
-            } else if (app.active) {
-                downloadColor = '#00c864';
-                uploadColor = '#ff9500';
-            } else {
-                downloadColor = '#7a8a99';
-                uploadColor = '#7a8a99';
-            }
-            
-            appInfoContent = `
-                <div class="app-details">
-                    <div class="app-name-text" style="color: #1a2332;">${app.name} ${policyCheckMarkMonitor}</div>
-                    <div class="app-category">
-                        <span style="color: #7a8a99;">${app.pid}</span>
-                    </div>
-                </div>
-                <div class="app-speeds-monitor">
-                    <div class="app-download-speed" style="color: ${downloadColor};">
-                        <span>${speedDisplayDown}</span>
-                    </div>
-                    <div class="app-upload-speed" style="color: ${uploadColor};">
-                        <span>${speedDisplayUp}</span>
-                    </div>
-                </div>
-                <div class="app-category">
-                    Current: <span class="app-protocol-badge">${protocolDisplay}</span>
-                </div>
-                <div class="app-controls">
-                    <button class="policy-btn" onclick="openPolicyEditor(${originalIndex})">POLICY</button>
-                </div>
-            `;
+            appInfoContent = `<div class="app-details"><div class="app-name-text" style="color: #1a2332;">${app.name} ${policyCheckMarkMonitor}</div><div class="app-category"><span style="color: #7a8a99;">${app.pid}</span></div></div><div class="app-speeds-monitor"><div class="app-download-speed" style="color: ${downloadColor};"><span>${speedDisplayDown}</span></div><div class="app-upload-speed" style="color: ${uploadColor};"><span>${speedDisplayUp}</span></div></div><div class="app-category">Current: <span class="app-protocol-badge">${protocolDisplay}</span></div><div class="app-controls"><button class="policy-btn" onclick="openPolicyEditor(${originalIndex})">POLICY</button></div>`;
         } else {
-            appInfoContent = `
-                <div class="app-details">
-                    <div class="app-name-text">${app.name}</div>
-                    <div class="app-category">
-                        <span>${app.category}</span>
-                        <span class="app-protocol-badge">${app.protocol}</span>
-                        ${modesDisplay}
-                    </div>
-                </div>
-                <div class="app-performance">
-                    <div class="app-speed">${app.speed}</div>
-                    <div class="app-limit">Limit: ${app.speedLimit}</div>
-                </div>
-                <div class="priority-badge priority-${app.priority}">${app.priority.toUpperCase()}</div>
-                <div class="app-controls">
-                    <div class="toggle-switch ${app.active ? 'active' : ''}" onclick="toggleApp(${originalIndex})">
-                        <div class="toggle-slider"></div>
-                    </div>
-                    <button class="kill-app-btn" onclick="killApp(${originalIndex}, 'dashboard')">KILL</button>
-                </div>
-            `;
+            appInfoContent = `<div class="app-details"><div class="app-name-text">${app.name}</div><div class="app-category"><span>${app.category}</span><span class="app-protocol-badge">${app.protocol}</span>${modesDisplay}</div></div><div class="app-performance"><div class="app-speed">${app.speed}</div><div class="app-limit">Limit: ${app.speedLimit}</div></div><div class="priority-badge priority-${app.priority}">${app.priority.toUpperCase()}</div><div class="app-controls"><div class="toggle-switch ${app.active ? 'active' : ''}" onclick="toggleApp(${originalIndex})"><div class="toggle-slider"></div></div><button class="kill-app-btn" onclick="killApp(${originalIndex}, 'dashboard')">KILL</button></div>`;
         }
 
-        appElement.innerHTML = `
-            <div class="app-logo-small" style="background: ${app.color}">${app.logo}</div>
-            <div class="app-info">${appInfoContent}</div>
-        `;
+        appElement.innerHTML = `<div class="app-logo-small" style="background: ${app.color}">${app.logo}</div><div class="app-info">${appInfoContent}</div>`;
         container.appendChild(appElement);
     });
 }
@@ -411,16 +325,12 @@ function requestProcessRescan() {
     if (socket.readyState === WebSocket.OPEN) {
         console.log("Requesting immediate process rescan from backend...");
         socket.send('rescan'); 
-        
         const rescanBtn = document.querySelector('#monitor .refresh-btn');
         if (rescanBtn) {
             rescanBtn.style.transition = 'transform 0.5s ease-out';
             rescanBtn.style.transform = 'rotate(360deg)';
-            setTimeout(() => {
-                rescanBtn.style.transform = 'rotate(0deg)';
-            }, 500);
+            setTimeout(() => { rescanBtn.style.transform = 'rotate(0deg)'; }, 500);
         }
-
         showNotification('Rescan request sent...', 'info');
     } else {
         showNotification('Cannot rescan, not connected to backend.', 'error');
@@ -443,35 +353,26 @@ function refreshApplications() {
 function toggleApp(index) {
     const app = applications[index];
     if (!app) return;
-    
     app.active = !app.active;
-
     if (!app.active) {
         app.speed = "0 KB/s";
         app.uploadSpeed = "0 KB/s";
     } 
-    
     renderApplications('dashboard');
     renderApplications('monitor');
     showNotification(`${app.name} ${app.active ? 'resumed' : 'paused'}`, app.active ? 'success' : 'error');
 }
 
-// REPLACE this entire function in script.js
 function killApp(index) {
     let appToKill = applications[index];
     if (!appToKill) return;
 
-    // NEW: Send delete command to the backend
     if (socket.readyState === WebSocket.OPEN) {
-        const message = {
-            action: 'delete_policy',
-            payload: { name: appToKill.name }
-        };
+        const message = { action: 'delete_policy', payload: { name: appToKill.name } };
         socket.send(JSON.stringify(message));
         console.log("Sent delete_policy command for:", appToKill.name);
     }
 
-    // Reset the local state (this part is the same as before)
     appToKill.active = false;
     appToKill.priority = 'low'; 
     appToKill.speedLimit = 'DEFAULT';
@@ -479,25 +380,38 @@ function killApp(index) {
     appToKill.appliedModes = [];
     appToKill.protocol = 'DEFAULT';
     appToKill.category = 'DEFAULT POLICY';
+    
+    // --- NEW: Remove from local saved policies cache ---
+    delete savedPolicies[appToKill.name.toLowerCase()];
 
     renderApplications('dashboard');
     renderApplications('monitor');
-
     showNotification(`${appToKill.name} policy has been reset and removed.`, 'error');
 }
 
+// --- MODIFIED: emergencyKill now communicates with the backend ---
 function emergencyKill() {
     applications.forEach(app => {
-        if (app.active === true) {
-             app.active = false;
-             app.priority = 'low'; 
-             app.speedLimit = 'DEFAULT'; 
-             app.policyApplied = false;
-             app.appliedModes = [];
-             app.protocol = 'DEFAULT';
-             app.category = 'DEFAULT POLICY';
+        // Only reset apps that have an active policy
+        if (app.policyApplied) {
+            if (socket.readyState === WebSocket.OPEN) {
+                const message = { action: 'delete_policy', payload: { name: app.name } };
+                socket.send(JSON.stringify(message));
+                console.log("Sent emergency delete_policy for:", app.name);
+            }
+             // Reset local state
+            app.active = false;
+            app.priority = 'low'; 
+            app.speedLimit = 'DEFAULT'; 
+            app.policyApplied = false;
+            app.appliedModes = [];
+            app.protocol = 'DEFAULT';
+            app.category = 'DEFAULT POLICY';
         }
     });
+
+    // Clear the entire local policy cache
+    savedPolicies = {};
 
     renderApplications('dashboard');
     renderApplications('monitor'); 
@@ -507,40 +421,25 @@ function emergencyKill() {
 function renderModeCheckboxes(appliedModes) {
     const container = document.getElementById('policyModeCheckboxes');
     container.innerHTML = '';
-
     POLICY_MODES.forEach(mode => {
         const isChecked = appliedModes.includes(mode.value);
         const label = document.createElement('label');
-        label.innerHTML = `
-            <input type="checkbox" name="policyMode" value="${mode.value}" ${isChecked ? 'checked' : ''}>
-            <span>${mode.label}</span>
-        `;
+        label.innerHTML = `<input type="checkbox" name="policyMode" value="${mode.value}" ${isChecked ? 'checked' : ''}><span>${mode.label}</span>`;
         container.appendChild(label);
     });
 }
 
 function openPolicyEditor(index) {
     const app = applications[index];
-    if (!app) {
-        console.error("Could not find application to open policy editor for.");
-        return;
-    }
+    if (!app) { console.error("Could not find application to open policy editor for."); return; }
     currentEditingAppIndex = index;
-
     document.getElementById('modalAppName').textContent = `Policy Editor for ${app.name}`;
     renderModeCheckboxes(app.appliedModes || []);
-
-    let currentPriority = app.active === false ? 'block' : app.priority;
-    document.getElementById('prioritySelect').value = currentPriority || 'medium'; 
-
-    const dlSlider = document.getElementById('downloadLimitSlider');
-    dlSlider.value = app.downloadCap;
+    document.getElementById('prioritySelect').value = app.active === false ? 'block' : app.priority || 'medium'; 
+    document.getElementById('downloadLimitSlider').value = app.downloadCap;
     document.getElementById('downloadLimitValue').textContent = `${app.downloadCap} Mbps`;
-
-    const ulSlider = document.getElementById('uploadLimitSlider');
-    ulSlider.value = app.uploadCap;
+    document.getElementById('uploadLimitSlider').value = app.uploadCap;
     document.getElementById('uploadLimitValue').textContent = `${app.uploadCap} Mbps`;
-
     document.getElementById('policyModal').style.display = 'block';
     showNotification(`Editing policy for ${app.name}`, 'info');
 }
@@ -550,15 +449,8 @@ function updateLimitValue(type) {
     document.getElementById(`${type}LimitValue`).textContent = `${slider.value} Mbps`;
 }
 
-// REPLACE the entire savePolicyChanges function with this one
-
-// REPLACE this entire function in script.js
 function savePolicyChanges() {
-    if (currentEditingAppIndex === -1) {
-        closeModal();
-        return;
-    }
-
+    if (currentEditingAppIndex === -1) { closeModal(); return; }
     let app = applications[currentEditingAppIndex];
     if (!app) return;
 
@@ -568,17 +460,11 @@ function savePolicyChanges() {
     const selectedModes = Array.from(document.querySelectorAll('#policyModeCheckboxes input[name="policyMode"]:checked')).map(cb => cb.value);
 
     if (newPriority === 'block') {
-        // NEW: Send delete command to the backend when blocking
         if (socket.readyState === WebSocket.OPEN) {
-            const message = {
-                action: 'delete_policy',
-                payload: { name: app.name }
-            };
+            const message = { action: 'delete_policy', payload: { name: app.name } };
             socket.send(JSON.stringify(message));
             console.log("Sent delete_policy command via 'Block' for:", app.name);
         }
-
-        // Reset local state (same as before)
         app.active = false;
         app.priority = 'low'; 
         app.speedLimit = 'DEFAULT'; 
@@ -586,9 +472,10 @@ function savePolicyChanges() {
         app.appliedModes = [];
         app.protocol = 'DEFAULT';
         app.category = 'DEFAULT POLICY';
+        // --- NEW: Remove from local cache ---
+        delete savedPolicies[app.name.toLowerCase()];
         showNotification(`Policy for ${app.name} has been reset and removed.`, 'error');
     } else {
-        // Update the app's state in the frontend
         app.active = true;
         app.priority = newPriority;
         app.downloadCap = newDownloadCap;
@@ -599,25 +486,18 @@ function savePolicyChanges() {
         app.speedLimit = `${newDownloadCap} MB/s`; 
         app.policyApplied = true;
 
-        // Send the policy data to the backend to be saved
+        const policyPayload = { name: app.name, priority: app.priority, downloadCap: app.downloadCap, uploadCap: app.uploadCap, appliedModes: app.appliedModes };
+        
+        // --- NEW: Update local cache immediately ---
+        savedPolicies[app.name.toLowerCase()] = policyPayload;
+
         if (socket.readyState === WebSocket.OPEN) {
-            const policyPayload = {
-                name: app.name,
-                priority: app.priority,
-                downloadCap: app.downloadCap,
-                uploadCap: app.uploadCap,
-                appliedModes: app.appliedModes
-            };
-            const message = {
-                action: 'save_policy',
-                payload: policyPayload
-            };
+            const message = { action: 'save_policy', payload: policyPayload };
             socket.send(JSON.stringify(message));
             console.log("Sent save_policy data to backend:", policyPayload);
         } else {
             console.error("Cannot save policy, WebSocket is not open.");
         }
-
         showNotification(`Policy for ${app.name} saved and applied successfully!`, 'success');
     }
 
@@ -633,29 +513,19 @@ function closeModal() {
 
 window.onclick = function(event) {
     const modal = document.getElementById('policyModal');
-    if (event.target == modal) {
-        closeModal();
-    }
+    if (event.target == modal) { closeModal(); }
 }
 
 function setupEventListeners() {
     document.querySelectorAll('.sidebar-item').forEach(item => {
         item.addEventListener('click', () => {
             const sectionName = item.dataset.section;
-
             document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
             item.classList.add('active');
-
             document.querySelectorAll('.dashboard-content').forEach(content => content.classList.remove('active-section'));
             const targetContent = document.getElementById(sectionName);
-            if(targetContent) {
-                targetContent.classList.add('active-section');
-            }
-            
-            if (sectionName === 'monitor' || sectionName === 'dashboard') {
-                renderApplications(sectionName);
-            }
-
+            if(targetContent) { targetContent.classList.add('active-section'); }
+            if (sectionName === 'monitor' || sectionName === 'dashboard') { renderApplications(sectionName); }
             showNotification(`Switched to ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}`);
         });
     });
@@ -669,21 +539,17 @@ function setupEventListeners() {
 
     document.getElementById('modeSelector').addEventListener('change', (e) => {
         const selectedMode = e.target.value;
-        
         applications.forEach(app => {
             if (app.category !== 'KILLED PROCESS') { 
                 const shouldBeActive = app.appliedModes && app.appliedModes.includes(selectedMode);
-                
-                if (shouldBeActive) {
-                    app.active = true;
-                } else if (selectedMode !== 'custom') { 
+                if (shouldBeActive) { app.active = true; } 
+                else if (selectedMode !== 'custom') { 
                     app.active = false;
                     app.speed = "0 KB/s";
                     app.uploadSpeed = "0 KB/s";
                 }
             }
         });
-        
         renderApplications('dashboard');
         renderApplications('monitor');
         showNotification(`Mode switched to ${selectedMode.toUpperCase()}. Policies applied.`, 'info');
@@ -697,7 +563,6 @@ function toggleNetworkStatus() {
     const statusText = document.getElementById('statusText');
     const statusIndicator = document.querySelector('.status-indicator');
     const isOnline = statusDot.classList.contains('status-online');
-
     if (isOnline) {
         statusDot.classList.remove('status-online');
         statusDot.classList.add('status-offline');
@@ -720,24 +585,12 @@ function toggleNetworkStatus() {
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     const style = document.createElement('style');
-
     if (!document.querySelector('style[data-notification-styles]')) {
         style.setAttribute('data-notification-styles', true);
-        style.textContent = `
-            @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-            @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-        `;
+        style.textContent = `@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } } @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }`;
         document.head.appendChild(style);
     }
-    
-    notification.style.cssText = `
-        position: fixed; top: 90px; right: 28px;
-        background: ${type === 'error' ? '#ff3b30' : type === 'success' ? '#00c864' : '#0066ff'};
-        color: white; padding: 14px 22px; border-radius: 12px; z-index: 2000;
-        animation: slideIn 0.3s ease-out;
-        box-shadow: 0 8px 24px ${type === 'error' ? 'rgba(255, 59, 48, 0.3)' : type === 'success' ? 'rgba(0, 200, 100, 0.3)' : 'rgba(0, 102, 255, 0.3)'};
-        font-weight: 600; font-size: 14px;
-    `;
+    notification.style.cssText = `position: fixed; top: 90px; right: 28px; background: ${type === 'error' ? '#ff3b30' : type === 'success' ? '#00c864' : '#0066ff'}; color: white; padding: 14px 22px; border-radius: 12px; z-index: 2000; animation: slideIn 0.3s ease-out; box-shadow: 0 8px 24px ${type === 'error' ? 'rgba(255, 59, 48, 0.3)' : type === 'success' ? 'rgba(0, 200, 100, 0.3)' : 'rgba(0, 102, 255, 0.3)'}; font-weight: 600; font-size: 14px;`;
     notification.textContent = message;
     document.body.appendChild(notification);
     setTimeout(() => {
@@ -755,25 +608,10 @@ function startRealTimeUpdates() {
 }
 
 function updateCharts() {
-    downloadData.shift();
-    downloadData.push(liveStats.download);
-    downloadChart.data.datasets[0].data = downloadData;
-    downloadChart.update('none');
-
-    uploadData.shift();
-    uploadData.push(liveStats.upload);
-    uploadChart.data.datasets[0].data = uploadData;
-    uploadChart.update('none');
-
-    latencyData.shift();
-    latencyData.push(liveStats.latency);
-    latencyChart.data.datasets[0].data = latencyData;
-    latencyChart.update('none');
-
-    efficiencyData.shift();
-    efficiencyData.push(liveStats.efficiency);
-    efficiencyChart.data.datasets[0].data = efficiencyData;
-    efficiencyChart.update('none');
+    downloadData.shift(); downloadData.push(liveStats.download); downloadChart.data.datasets[0].data = downloadData; downloadChart.update('none');
+    uploadData.shift(); uploadData.push(liveStats.upload); uploadChart.data.datasets[0].data = uploadData; uploadChart.update('none');
+    latencyData.shift(); latencyData.push(liveStats.latency); latencyChart.data.datasets[0].data = latencyData; latencyChart.update('none');
+    efficiencyData.shift(); efficiencyData.push(liveStats.efficiency); efficiencyChart.data.datasets[0].data = efficiencyData; efficiencyChart.update('none');
 }
 
 function updateBandwidthChart() {
@@ -781,13 +619,11 @@ function updateBandwidthChart() {
     bandwidthTimeData.push(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     bandwidthDownloadData.push(liveStats.download);
     bandwidthUploadData.push(liveStats.upload);
-    
     if (bandwidthTimeData.length > 30) {
         bandwidthTimeData.shift();
         bandwidthDownloadData.shift();
         bandwidthUploadData.shift();
     }
-    
     bandwidthChart.data.labels = bandwidthTimeData;
     bandwidthChart.data.datasets[0].data = bandwidthDownloadData;
     bandwidthChart.data.datasets[1].data = bandwidthUploadData;
@@ -801,7 +637,6 @@ function updateMonitorCharts() {
     protocolData = [newTcp, newUdp, 100 - total];
     protocolDistributionChart.data.datasets[0].data = protocolData;
     protocolDistributionChart.update('none');
-
     packetLossData.shift();
     packetLossData.push(Math.random() * 1.5 + 0.3);
     packetLossChart.data.datasets[0].data = packetLossData;
