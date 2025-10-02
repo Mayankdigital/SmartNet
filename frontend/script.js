@@ -10,14 +10,106 @@ socket.onopen = function(e) {
 socket.onmessage = function(event) {
     try {
         const data = JSON.parse(event.data);
-        liveStats.download = data.downloadSpeed;
-        liveStats.upload = data.uploadSpeed;
-        liveStats.latency = data.latency;
-        liveStats.efficiency = data.efficiency;
+        
+        // 1. Update global stats
+        liveStats.download = data.globalStats.downloadSpeed;
+        liveStats.upload = data.globalStats.uploadSpeed;
+        liveStats.latency = data.globalStats.latency;
+        liveStats.efficiency = data.globalStats.efficiency;
+
+        document.getElementById('downloadSpeed').textContent = `${liveStats.download.toFixed(1)} MB/s`;
+        document.getElementById('uploadSpeed').textContent = `${liveStats.upload.toFixed(1)} MB/s`;
+        document.getElementById('latency').textContent = `${Math.floor(liveStats.latency)}ms`;
+        document.getElementById('efficiency').textContent = `${liveStats.efficiency.toFixed(1)}%`;
+
+        // 2. Update the process list by merging backend data with frontend state
+        updateProcessList(data.processes);
+
+        // 3. Re-render the visible application list
+        const activeSection = document.querySelector('.sidebar-item.active').dataset.section;
+        if (activeSection === 'monitor' || activeSection === 'dashboard') {
+            renderApplications(activeSection);
+        }
     } catch (error) {
-        console.error("Error parsing message from backend:", error);
+        console.error("Error processing message from backend:", error);
     }
 };
+
+function generateColorFromString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+        let value = (hash >> (i * 8)) & 0xFF;
+        color += ('00' + value.toString(16)).substr(-2);
+    }
+    return `linear-gradient(135deg, ${color}, #222)`;
+}
+
+// This is the LATEST version of the function with the toggle switch FIX
+function updateProcessList(backendProcesses) {
+    // --- THE FIX IS ON THIS LINE ---
+    // We now convert all incoming names to lowercase to ensure case-insensitive matching.
+    const backendNames = new Set(backendProcesses.map(p => p.name.toLowerCase()));
+
+    backendProcesses.forEach(proc => {
+        const cleanProcName = proc.name.replace(/\.exe$/i, '');
+        const existingApp = applications.find(app => app.name.toLowerCase() === cleanProcName.toLowerCase());
+        
+        let downSpeed = proc.downloadSpeed;
+        let downUnit = 'KB/s';
+        if (downSpeed > 1024) { downSpeed /= 1024; downUnit = 'MB/s'; }
+
+        let upSpeed = proc.uploadSpeed;
+        let upUnit = 'KB/s';
+        if (upSpeed > 1024) { upSpeed /= 1024; upUnit = 'MB/s'; }
+        
+        const currentSpeedDown = `${downSpeed.toFixed(downSpeed > 0 ? 1 : 0)} ${downUnit}`;
+        const currentSpeedUp = `${upSpeed.toFixed(upSpeed > 0 ? 1 : 0)} ${upUnit}`;
+
+        if (existingApp) {
+            // Update live data ONLY.
+            existingApp.speed = currentSpeedDown;
+            existingApp.uploadSpeed = currentSpeedUp;
+            existingApp.pid = proc.pid; // This holds the instance count
+        } else {
+            // Add new process with default settings
+            const newApp = {
+                pid: proc.pid,
+                name: cleanProcName.charAt(0).toUpperCase() + cleanProcName.slice(1),
+                logo: cleanProcName.charAt(0).toUpperCase(),
+                category: "System Process",
+                protocol: "TCP/UDP",
+                speed: currentSpeedDown,
+                uploadSpeed: currentSpeedUp,
+                priority: "medium",
+                speedLimit: "No Limit",
+                active: true, // New apps are active by default
+                color: generateColorFromString(cleanProcName),
+                downloadCap: 100,
+                uploadCap: 50,
+                appliedModes: [],
+                policyApplied: false
+            };
+            applications.push(newApp);
+        }
+    });
+
+    // This check now works correctly with the case-insensitive backendNames Set
+    applications.forEach(app => {
+        const exeName = app.name.toLowerCase() + '.exe';
+        if (!backendNames.has(exeName) && !backendNames.has(app.name.toLowerCase()) && app.active) {
+            if (app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY') {
+                 app.active = false;
+                 app.speed = "0 KB/s";
+                 app.uploadSpeed = "0 KB/s";
+            }
+        }
+    });
+}
+
 
 socket.onclose = function(event) {
     if (event.wasClean) {
@@ -32,90 +124,10 @@ socket.onerror = function(error) {
     console.error(`[error] ${error.message}`);
     showNotification('Could not connect to backend!', 'error');
 };
-const initialApplications = [ 
-    {
-        name: "Zoom Meeting",
-        logo: "Z",
-        category: "Video Conference",
-        protocol: "TCP/UDP",
-        speed: "4.2 MB/s",
-        priority: "high",
-        speedLimit: "10 MB/s",
-        active: true,
-        color: 'linear-gradient(135deg, #4285f4, #5a95f5)',
-        uploadSpeed: "1.5 MB/s",
-        downloadCap: 50, // Mbps
-        uploadCap: 10,
-        appliedModes: ['work', 'gaming'],
-        policyApplied: false 
-    },
-    {
-        name: "Spotify",
-        logo: "♪",
-        category: "Music Streaming",
-        protocol: "TCP",
-        speed: "320 KB/s",
-        priority: "medium",
-        speedLimit: "1 MB/s",
-        active: true,
-        color: 'linear-gradient(135deg, #1ed760, #1fdf64)',
-        uploadSpeed: "10 KB/s",
-        downloadCap: 5,
-        uploadCap: 1,
-        appliedModes: ['entertainment'],
-        policyApplied: false 
-    },
-    {
-        name: "Steam",
-        logo: "S",
-        category: "Game Download",
-        protocol: "Scheduled",
-        speed: "0 KB/s",
-        priority: "low",
-        speedLimit: "50 MB/s",
-        active: false,
-        color: 'linear-gradient(135deg, #1b2838, #2a475e)',
-        uploadSpeed: "0 KB/s",
-        downloadCap: 100,
-        uploadCap: 1,
-        appliedModes: ['night'],
-        policyApplied: false 
-    },
-    {
-        name: "Chrome",
-        logo: "C",
-        category: "Web Browser",
-        protocol: "HTTP/2",
-        speed: "2.1 MB/s",
-        priority: "medium",
-        speedLimit: "10 MB/s",
-        active: true,
-        color: 'linear-gradient(135deg, #4285f4, #ea4335)',
-        uploadSpeed: "0.5 MB/s",
-        downloadCap: 20,
-        uploadCap: 5,
-        appliedModes: ['work', 'custom'],
-        policyApplied: false 
-    },
-    {
-        name: "Teams",
-        logo: "T",
-        category: "Video Conference",
-        protocol: "UDP",
-        speed: "1.8 MB/s",
-        priority: "high",
-        speedLimit: "5 MB/s",
-        active: true,
-        color: 'linear-gradient(135deg, #5b5fc7, #6264a7)',
-        uploadSpeed: "0.8 MB/s",
-        downloadCap: 5,
-        uploadCap: 5,
-        appliedModes: ['work'],
-        policyApplied: false 
-    }
-];
 
-let applications = JSON.parse(JSON.stringify(initialApplications));
+const initialApplications = [];
+
+let applications = [];
 
 const POLICY_MODES = [
     { value: 'work', label: 'Work Mode' },
@@ -153,25 +165,20 @@ function createPolicyResetLogEntry(app, pid) {
 
 
 let downloadChart, uploadChart, latencyChart, efficiencyChart, bandwidthChart, protocolDistributionChart, packetLossChart;
-let downloadData = [42, 45, 43, 47, 45, 48, 45, 46, 44, 45];
-let uploadData = [12, 13, 12, 14, 13, 12, 13, 12, 13, 13];
-let latencyData = [25, 23, 26, 22, 24, 21, 23, 25, 22, 23];
-let efficiencyData = [92, 94, 93, 95, 94, 96, 94, 96, 93, 94];
+let downloadData = Array(10).fill(0);
+let uploadData = Array(10).fill(0);
+let latencyData = Array(10).fill(0);
+let efficiencyData = Array(10).fill(0);
 let bandwidthTimeData = [];
 let bandwidthDownloadData = [];
 let bandwidthUploadData = [];
 
-let protocolData = [55, 30, 15];
-let packetLossData = [0.5, 1.2, 0.8, 1.5, 0.9, 0.4, 1.1];
+let protocolData = [34, 33, 33];
+let packetLossData = Array(7).fill(0);
 
 let currentEditingAppIndex = -1;
-let nextPID = 1000;
-
 
 function initDashboard() {
-    applications.forEach((app, index) => app.pid = nextPID + index);
-    nextPID += applications.length;
-
     initializeCharts();
     generateInitialBandwidthData();
     renderApplications('dashboard'); 
@@ -255,15 +262,13 @@ function generateInitialBandwidthData() {
     for (let i = 29; i >= 0; i--) {
         const time = new Date(now.getTime() - i * 60000);
         bandwidthTimeData.push(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        bandwidthDownloadData.push(Math.random() * 30 + 20);
-        bandwidthUploadData.push(Math.random() * 15 + 5);
+        bandwidthDownloadData.push(0);
+        bandwidthUploadData.push(0);
     }
 }
 
+// REPLACE the entire renderApplications function with this one
 
-/**
- * Renders application list based on the requested view (dashboard or monitor).
- */
 function renderApplications(view) {
     const containerId = view === 'monitor' ? 'monitorAppsContainer' : 'appsContainer';
     const container = document.getElementById(containerId);
@@ -273,8 +278,34 @@ function renderApplications(view) {
     
     let listToRender = applications; 
     
-    // Apply Filter Logic for Monitor View
+    if (view === 'dashboard') {
+        listToRender = applications.filter(app => app.policyApplied === true);
+
+        if (listToRender.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state-message">
+                    <div class="empty-state-icon">🛡️</div>
+                    <h3>No Policies Applied</h3>
+                    <p>Go to the <b>Real-time Monitor</b> tab to apply a policy to an application. It will then appear here.</p>
+                </div>
+            `;
+            return;
+        }
+    }
+    
     if (view === 'monitor') {
+        // --- NEW: Search Filter Logic ---
+        const searchInput = document.getElementById('processSearchInput');
+        const searchTerm = searchInput.value.toLowerCase().trim();
+
+        if (searchTerm) {
+            listToRender = listToRender.filter(app => 
+                app.name.toLowerCase().includes(searchTerm)
+            );
+        }
+        // --- End of Search Logic ---
+
+
         const filterValue = document.getElementById('policyStatusFilter').value;
         if (filterValue === 'applied') {
             listToRender = listToRender.filter(app => app.policyApplied === true && app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY');
@@ -283,15 +314,12 @@ function renderApplications(view) {
         }
     }
 
-
     listToRender.forEach((app) => {
-        
-        // Skip rendering the permanent KILLED/DEFAULT POLICY log entries on the DASHBOARD
         if (view === 'dashboard' && (app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY')) {
             return;
         }
 
-        const originalIndex = applications.findIndex(a => a.pid === app.pid);
+        const originalIndex = applications.findIndex(a => a.name.toLowerCase() === app.name.toLowerCase());
         
         const appElement = document.createElement('div');
         const statusClass = (view === 'monitor' && !app.active) ? 'inactive' : (app.active ? 'active' : '');
@@ -303,41 +331,33 @@ function renderApplications(view) {
             ? `<span class="app-mode-badge">${app.appliedModes.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}</span>`
             : '';
         
-        // Policy Checkmark for Monitor
         const policyCheckMarkMonitor = app.policyApplied 
             ? `<span style="color: #00c864; font-size: 16px; margin-left: 8px;">✅</span>`
             : '';
 
         if (view === 'monitor') {
-            // Monitor View - NO CAPS
             const speedDisplayDown = `⬇️ ${app.speed}`;
             const speedDisplayUp = `⬆️ ${app.uploadSpeed}`;
             const protocolDisplay = app.active ? app.protocol.split('/')[0] : app.protocol;
             
-            // FIX: Color logic for Monitor
-            // Set colors based on status, but use fixed theme colors for app details.
             let downloadColor, uploadColor;
             
             if (app.category === 'KILLED PROCESS') {
-                downloadColor = '#ff3b30'; // Red for true termination
+                downloadColor = '#ff3b30';
                 uploadColor = '#ff3b30'; 
             } else if (app.active) {
-                downloadColor = '#00c864'; // Green when Active
-                uploadColor = '#ff9500';  // Orange when Active
-            } else {
-                // Paused or Default Policy: Use Dark text color for speeds
-                // We keep the original colors here, so it doesn't look muted/black.
-                // The visual distinction is the 0 KB/s reading.
-                downloadColor = '#00c864'; 
+                downloadColor = '#00c864';
                 uploadColor = '#ff9500';
+            } else {
+                downloadColor = '#7a8a99';
+                uploadColor = '#7a8a99';
             }
-
-
+            
             appInfoContent = `
                 <div class="app-details">
                     <div class="app-name-text" style="color: #1a2332;">${app.name} ${policyCheckMarkMonitor}</div>
                     <div class="app-category">
-                        <span style="color: #7a8a99;">PID: ${app.pid}</span>
+                        <span style="color: #7a8a99;">${app.pid}</span>
                     </div>
                 </div>
                 <div class="app-speeds-monitor">
@@ -356,7 +376,6 @@ function renderApplications(view) {
                 </div>
             `;
         } else {
-            // Dashboard View (Original)
             appInfoContent = `
                 <div class="app-details">
                     <div class="app-name-text">${app.name}</div>
@@ -388,56 +407,66 @@ function renderApplications(view) {
     });
 }
 
+function requestProcessRescan() {
+    if (socket.readyState === WebSocket.OPEN) {
+        console.log("Requesting immediate process rescan from backend...");
+        socket.send('rescan'); 
+        
+        const rescanBtn = document.querySelector('#monitor .refresh-btn');
+        if (rescanBtn) {
+            rescanBtn.style.transition = 'transform 0.5s ease-out';
+            rescanBtn.style.transform = 'rotate(360deg)';
+            setTimeout(() => {
+                rescanBtn.style.transform = 'rotate(0deg)';
+            }, 500);
+        }
+
+        showNotification('Rescan request sent...', 'info');
+    } else {
+        showNotification('Cannot rescan, not connected to backend.', 'error');
+    }
+}
 
 function refreshApplications() {
     const refreshBtn = document.querySelector('.refresh-btn');
     refreshBtn.style.transform = 'rotate(360deg)';
     setTimeout(() => {
         const activeSection = document.querySelector('.sidebar-item.active').dataset.section;
-        if (activeSection === 'monitor') {
-            renderApplications('monitor');
-        } else {
-            renderApplications('dashboard');
+        if (activeSection === 'monitor' || activeSection === 'dashboard') {
+            renderApplications(activeSection);
         }
         refreshBtn.style.transform = 'rotate(0deg)';
-        showNotification('Applications refreshed', 'success');
+        showNotification('Display refreshed', 'success');
     }, 500);
 }
 
 function toggleApp(index) {
     const app = applications[index];
+    if (!app) return;
     
     app.active = !app.active;
 
     if (!app.active) {
-        // If toggled OFF (paused): Policy suspended, revert to default speed logic
         app.speed = "0 KB/s";
         app.uploadSpeed = "0 KB/s";
     } 
-    // If toggled ON, the next call to updateApplicationSpeeds() will resume the speed based on saved policies.
-
+    
     renderApplications('dashboard');
     renderApplications('monitor');
     showNotification(`${app.name} ${app.active ? 'resumed' : 'paused'}`, app.active ? 'success' : 'error');
 }
 
-/**
- * Policy Wipe/Reset Action. Removes custom policy and reverts to simulated OS defaults.
- */
 function killApp(index) {
     let appToKill = applications[index];
+    if (!appToKill) return;
 
-    // 1. Policy Wipe/Policy Reset
     appToKill.active = false;
     appToKill.priority = 'low'; 
-    appToKill.speedLimit = 'DEFAULT'; // Dashboard display status
+    appToKill.speedLimit = 'DEFAULT';
     appToKill.policyApplied = false;
     appToKill.appliedModes = [];
     appToKill.protocol = 'DEFAULT';
-    appToKill.category = 'DEFAULT POLICY'; // Mark as policy reset/default
-
-    // FIX: Remove the temporary speed zeroing so updateApplicationSpeeds() can apply default rate immediately.
-    // The next updateApplicationSpeeds() call will calculate the non-zero default speed.
+    appToKill.category = 'DEFAULT POLICY';
     
     renderApplications('dashboard');
     renderApplications('monitor');
@@ -463,7 +492,6 @@ function emergencyKill() {
     showNotification('Emergency kill activated. All policies reset.', 'error');
 }
 
-
 function renderModeCheckboxes(appliedModes) {
     const container = document.getElementById('policyModeCheckboxes');
     container.innerHTML = '';
@@ -481,24 +509,23 @@ function renderModeCheckboxes(appliedModes) {
 
 function openPolicyEditor(index) {
     const app = applications[index];
+    if (!app) {
+        console.error("Could not find application to open policy editor for.");
+        return;
+    }
     currentEditingAppIndex = index;
 
     document.getElementById('modalAppName').textContent = `Policy Editor for ${app.name}`;
-
     renderModeCheckboxes(app.appliedModes || []);
 
     let currentPriority = app.active === false ? 'block' : app.priority;
     document.getElementById('prioritySelect').value = currentPriority || 'medium'; 
 
     const dlSlider = document.getElementById('downloadLimitSlider');
-    const maxDownload = 100;
-    dlSlider.max = maxDownload;
     dlSlider.value = app.downloadCap;
     document.getElementById('downloadLimitValue').textContent = `${app.downloadCap} Mbps`;
 
     const ulSlider = document.getElementById('uploadLimitSlider');
-    const maxUpload = 50;
-    ulSlider.max = maxUpload;
     ulSlider.value = app.uploadCap;
     document.getElementById('uploadLimitValue').textContent = `${app.uploadCap} Mbps`;
 
@@ -518,40 +545,14 @@ function savePolicyChanges() {
     }
 
     let app = applications[currentEditingAppIndex];
+    if (!app) return;
     
     const newPriority = document.getElementById('prioritySelect').value;
     const newDownloadCap = parseInt(document.getElementById('downloadLimitSlider').value);
     const newUploadCap = parseInt(document.getElementById('uploadLimitSlider').value);
-    
-    const selectedModes = Array.from(document.querySelectorAll('#policyModeCheckboxes input[name="policyMode"]:checked'))
-                               .map(cb => cb.value);
-
-    
-    // If the app is currently a permanent KILLED log entry, we must spawn a new active version
-    if (app.category === 'KILLED PROCESS') {
-        if (newPriority !== 'block') {
-            const indexToReplace = applications.findIndex(a => a.pid === app.pid);
-            const initialApp = getInitialApplicationState(app.name);
-            const pidToPreserve = app.pid;
-            
-            if (initialApp && indexToReplace !== -1) {
-                applications.splice(indexToReplace, 1);
-                const newActiveApp = JSON.parse(JSON.stringify(initialApp));
-                newActiveApp.pid = pidToPreserve;
-                applications.push(newActiveApp);
-                app = newActiveApp;
-            }
-        } else {
-            closeModal();
-            return;
-        }
-    }
-
-
-    // --- APPLY POLICIES ---
+    const selectedModes = Array.from(document.querySelectorAll('#policyModeCheckboxes input[name="policyMode"]:checked')).map(cb => cb.value);
     
     if (newPriority === 'block') {
-         // Policy Wipe/Reset Action
         app.active = false;
         app.priority = 'low'; 
         app.speedLimit = 'DEFAULT'; 
@@ -561,15 +562,13 @@ function savePolicyChanges() {
         app.category = 'DEFAULT POLICY';
         showNotification(`Policy for ${app.name} reset to system default.`, 'error');
     } else {
-        // Active Policy Applied
         app.active = true;
         app.priority = newPriority;
         app.downloadCap = newDownloadCap;
         app.uploadCap = newUploadCap;
         app.appliedModes = selectedModes;
-        app.protocol = initialApplications.find(i => i.name === app.name).protocol; // Restore native protocol
-        app.category = initialApplications.find(i => i.name === app.name).category; // Restore native category
-        
+        app.protocol = "TCP/UDP";
+        app.category = "System Process";
         app.speedLimit = `${newDownloadCap} MB/s`; 
         app.policyApplied = true;
         
@@ -578,7 +577,6 @@ function savePolicyChanges() {
 
     renderApplications('dashboard');
     renderApplications('monitor');
-
     closeModal();
 }
 
@@ -594,7 +592,6 @@ window.onclick = function(event) {
     }
 }
 
-
 function setupEventListeners() {
     document.querySelectorAll('.sidebar-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -609,10 +606,8 @@ function setupEventListeners() {
                 targetContent.classList.add('active-section');
             }
             
-            if (sectionName === 'monitor') {
-                renderApplications('monitor');
-            } else if (sectionName === 'dashboard') {
-                renderApplications('dashboard');
+            if (sectionName === 'monitor' || sectionName === 'dashboard') {
+                renderApplications(sectionName);
             }
 
             showNotification(`Switched to ${sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}`);
@@ -649,24 +644,6 @@ function setupEventListeners() {
     });
 
     document.getElementById('statusDot').addEventListener('click', toggleNetworkStatus);
-}
-
-function updateModeSettings(mode) {
-    applications.forEach(app => {
-        if (app.active) {
-            if (mode === 'work' && ['Zoom Meeting', 'Teams'].includes(app.name)) {
-                app.priority = 'high';
-            } else if (mode === 'gaming' && app.name === 'Steam') {
-                app.priority = 'high';
-            } else if (mode === 'night') {
-                app.active = false;
-                app.speed = "0 KB/s";
-                app.uploadSpeed = "0 KB/s";
-            }
-        }
-    });
-    renderApplications('dashboard');
-    renderApplications('monitor');
 }
 
 function toggleNetworkStatus() {
@@ -723,19 +700,15 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-
 function startRealTimeUpdates() {
     setInterval(() => {
-        updateStats();
-        updateApplicationSpeeds();
         updateCharts();
         updateBandwidthChart();
-        updateMonitorCharts(); 
+        updateMonitorCharts();
     }, 2000);
 }
 
-    function updateCharts() {
-    // Push live data to the chart arrays
+function updateCharts() {
     downloadData.shift();
     downloadData.push(liveStats.download);
     downloadChart.data.datasets[0].data = downloadData;
@@ -755,14 +728,13 @@ function startRealTimeUpdates() {
     efficiencyData.push(liveStats.efficiency);
     efficiencyChart.data.datasets[0].data = efficiencyData;
     efficiencyChart.update('none');
-
 }
 
 function updateBandwidthChart() {
     const now = new Date();
     bandwidthTimeData.push(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    bandwidthDownloadData.push(Math.random() * 30 + 20);
-    bandwidthUploadData.push(Math.random() * 15 + 5);
+    bandwidthDownloadData.push(liveStats.download);
+    bandwidthUploadData.push(liveStats.upload);
     
     if (bandwidthTimeData.length > 30) {
         bandwidthTimeData.shift();
@@ -788,61 +760,6 @@ function updateMonitorCharts() {
     packetLossData.push(Math.random() * 1.5 + 0.3);
     packetLossChart.data.datasets[0].data = packetLossData;
     packetLossChart.update('none');
-}
-
-function updateStats() {
-    // Use live data from the WebSocket
-    document.getElementById('downloadSpeed').textContent = `${liveStats.download.toFixed(1)} MB/s`;
-    document.getElementById('uploadSpeed').textContent = `${liveStats.upload.toFixed(1)} MB/s`;
-    document.getElementById('latency').textContent = `${Math.floor(liveStats.latency)}ms`;
-    document.getElementById('efficiency').textContent = `${liveStats.efficiency.toFixed(1)}%`;
-}
-
-
-function updateApplicationSpeeds() {
-    applications.forEach((app) => {
-        if (app.active) {
-            // Active: Apply Policy Caps (if applicable, otherwise default to full speed)
-            const maxDownloadMbps = app.downloadCap;
-            const maxUploadMbps = app.uploadCap;
-            
-            let newSpeedDownMBs = Math.min(maxDownloadMbps, maxDownloadMbps * 0.5 + (Math.random() * maxDownloadMbps * 0.4)) / 8;
-            let newSpeedUpMBs = Math.min(maxUploadMbps, maxUploadMbps * 0.5 + (Math.random() * maxUploadMbps * 0.4)) / 8;
-
-            let unitDown = 'MB/s';
-            let unitUp = 'MB/s';
-            
-            if (newSpeedDownMBs < 1) { newSpeedDownMBs *= 1024; unitDown = 'KB/s'; }
-            if (newSpeedUpMBs < 1) { newSpeedUpMBs *= 1024; unitUp = 'KB/s'; }
-
-            app.speed = `${newSpeedDownMBs.toFixed(newSpeedDownMBs < 10 ? 1 : 0)} ${unitDown}`;
-            app.uploadSpeed = `${newSpeedUpMBs.toFixed(newSpeedUpMBs < 10 ? 1 : 0)} ${unitUp}`;
-            
-        } else if (app.category === 'KILLED PROCESS') {
-            // Killed Process: Truly zero traffic
-            app.speed = "0 KB/s";
-            app.uploadSpeed = "0 KB/s";
-        } else {
-            // Paused or Default Policy (Policy removed/disabled but app is running)
-            // Revert to simulated default speeds.
-            const DEFAULT_DL_RATE = Math.random() * 0.5 + 0.1; 
-            const DEFAULT_UL_RATE = Math.random() * 0.1 + 0.05; 
-            
-            let newSpeedDownMBs = DEFAULT_DL_RATE;
-            let newSpeedUpMBs = DEFAULT_UL_RATE;
-
-            let unitDown = 'MB/s';
-            let unitUp = 'MB/s';
-            
-            if (newSpeedDownMBs < 1) { newSpeedDownMBs *= 1024; unitDown = 'KB/s'; }
-            if (newSpeedUpMBs < 1) { newSpeedUpMBs *= 1024; unitUp = 'KB/s'; }
-
-            app.speed = `${newSpeedDownMBs.toFixed(newSpeedDownMBs < 10 ? 1 : 0)} ${unitDown}`;
-            app.uploadSpeed = `${newSpeedUpMBs.toFixed(newSpeedUpMBs < 10 ? 1 : 0)} ${unitUp}`;
-        }
-    });
-    renderApplications('dashboard');
-    renderApplications('monitor');
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);

@@ -94,10 +94,10 @@
                             <div class="stat-title">Download Speed</div>
                             <div class="stat-icon">⬇️</div>
                         </div>
-                        <div class="stat-value" id="downloadSpeed">45.2 MB/s</div>
+                        <div class="stat-value" id="downloadSpeed">0 MB/s</div>
                         <div class="stat-change positive">
                             <span>↗</span>
-                            <span>12% from last hour</span>
+                            <span>Live Data</span>
                         </div>
                         <div class="mini-graph">
                             <canvas id="downloadChart"></canvas>
@@ -109,10 +109,10 @@
                             <div class="stat-title">Upload Speed</div>
                             <div class="stat-icon">⬆️</div>
                         </div>
-                        <div class="stat-value" id="uploadSpeed">12.8 MB/s</div>
+                        <div class="stat-value" id="uploadSpeed">0 MB/s</div>
                         <div class="stat-change negative">
                             <span>↘</span>
-                            <span>5% from last hour</span>
+                            <span>Live Data</span>
                         </div>
                         <div class="mini-graph">
                             <canvas id="uploadChart"></canvas>
@@ -124,10 +124,10 @@
                             <div class="stat-title">Latency</div>
                             <div class="stat-icon">⚡</div>
                         </div>
-                        <div class="stat-value" id="latency">23ms</div>
+                        <div class="stat-value" id="latency">0ms</div>
                         <div class="stat-change positive">
                             <span>↗</span>
-                            <span>8ms improvement</span>
+                            <span>Live Data</span>
                         </div>
                         <div class="mini-graph">
                             <canvas id="latencyChart"></canvas>
@@ -139,10 +139,10 @@
                             <div class="stat-title">Network Efficiency</div>
                             <div class="stat-icon">🎯</div>
                         </div>
-                        <div class="stat-value" id="efficiency">94.2%</div>
+                        <div class="stat-value" id="efficiency">0%</div>
                         <div class="stat-change positive">
                             <span>↗</span>
-                            <span>3.2% optimized</span>
+                            <span>Live Data</span>
                         </div>
                         <div class="mini-graph">
                             <canvas id="efficiencyChart"></canvas>
@@ -190,20 +190,22 @@
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="processSearchInput" class="search-input" placeholder="Search applications..." onkeyup="renderApplications('monitor')">
+                        
                         <select class="filter-dropdown" id="policyStatusFilter" onchange="renderApplications('monitor')">
                             <option value="all">Policy Status: All</option>
                             <option value="applied">Policy Applied (✅)</option>
                             <option value="default">Default/Killed (❌)</option>
                         </select>
-                        <button class="refresh-btn" onclick="refreshApplications()">
-                            <span>🔍</span>
-                            <span>Rescan Processes</span>
+                        
+                        <button class="refresh-btn icon-btn" onclick="requestProcessRescan()" title="Rescan Processes">
+                            <span>🔄</span>
                         </button>
                     </div>
                 </div>
                 
                 <div class="apps-container" id="monitorAppsContainer">
-                    </div>
+                </div>
                 
                 <div class="section-title" style="margin-top: 32px;">
                     <div class="section-title-left">
@@ -238,7 +240,7 @@
                 
                 <h4>Apply Policy To Modes</h4>
                 <div class="mode-checkbox-group" id="policyModeCheckboxes">
-                    </div>
+                </div>
                 
                 <h4>Bandwidth Priority Class (OS Scheduling)</h4>
                 <select id="prioritySelect">
