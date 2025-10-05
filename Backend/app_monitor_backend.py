@@ -11,14 +11,28 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 try:
-    # This automatically looks for 'serviceAccountKey.json' in the same directory.
     cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
     db = firestore.client()
     print("✅ Successfully connected to Firebase Firestore.")
 except Exception as e:
-    print(f"❌ ERROR: Could not connect to Firebase. Make sure 'serviceAccountKey.json' is in the folder. Error: {e}")
+    print(f"❌ ERROR: Could not connect to Firebase. Make sure 'serviceAccountKey.json' is present. Error: {e}")
     db = None
+
+# --- NEW: Function to get all policies from Firebase ---
+def get_all_policies_from_firebase():
+    """Fetches all saved policies from the Firestore 'policies' collection."""
+    if not db:
+        print("Firestore not connected. Cannot fetch policies.")
+        return []
+    try:
+        policies_ref = db.collection('policies').stream()
+        policies = [doc.to_dict() for doc in policies_ref]
+        print(f"Fetched {len(policies)} policies from Firebase.")
+        return policies
+    except Exception as e:
+        print(f"Error fetching policies from Firebase: {e}")
+        return []
 
 def save_policy_to_firebase(policy_data):
     """Saves a single application's policy to Firestore."""
@@ -30,33 +44,45 @@ def save_policy_to_firebase(policy_data):
         if not app_name:
             print("Error: Policy data is missing 'name'.")
             return
-        data_to_save = {
-            'name': app_name,
-            'priority': policy_data.get('priority'),
-            'downloadCap': policy_data.get('downloadCap'),
-            'uploadCap': policy_data.get('uploadCap'),
-            'appliedModes': policy_data.get('appliedModes', [])
-        }
-        db.collection('policies').document(app_name).set(data_to_save)
+        # Ensure the document ID is consistent (e.g., lowercase)
+        doc_id = app_name.lower()
+        db.collection('policies').document(doc_id).set(policy_data)
         print(f"Policy for '{app_name}' saved to Firebase.")
     except Exception as e:
         print(f"Error saving policy to Firebase: {e}")
 
-# --- State Tracking & Core Logic (Corrected and Complete) ---
+# --- NEW: Function to delete a policy from Firebase ---
+def delete_policy_from_firebase(policy_data):
+    """Deletes a single application's policy from Firestore."""
+    if not db:
+        print("Firestore not connected. Cannot delete policy.")
+        return
+    try:
+        app_name = policy_data.get('name')
+        if not app_name:
+            print("Error: Policy data for deletion is missing 'name'.")
+            return
+        # Use the same consistent document ID
+        doc_id = app_name.lower()
+        db.collection('policies').document(doc_id).delete()
+        print(f"Policy for '{app_name}' deleted from Firebase.")
+    except Exception as e:
+        print(f"Error deleting policy from Firebase: {e}")
+
+
+# State Tracking & Core Logic (No changes needed here)
 last_global_net_io = psutil.net_io_counters()
 last_global_time = time.time()
 process_io_cache = {}
 
 async def get_aggregated_network_stats():
-    """Calculates global stats and aggregates per-process stats by application name."""
     global last_global_net_io, last_global_time, process_io_cache
     
     current_time = time.time()
     duration = current_time - last_global_time
-    if duration == 0: # Avoid division by zero on the first run
+    if duration == 0:
         duration = 1 
 
-    # --- 1. Calculate Global Stats ---
     current_global_net_io = psutil.net_io_counters()
     bytes_sent = current_global_net_io.bytes_sent - last_global_net_io.bytes_sent
     bytes_recv = current_global_net_io.bytes_recv - last_global_net_io.bytes_recv
@@ -77,7 +103,6 @@ async def get_aggregated_network_stats():
         "efficiency": round(efficiency, 1)
     }
 
-    # --- 2. Aggregate Per-Process Stats ---
     aggregated_processes = defaultdict(lambda: {'downloadSpeed': 0, 'uploadSpeed': 0, 'count': 0})
     current_pids = set()
 
@@ -123,44 +148,62 @@ async def get_aggregated_network_stats():
     processes_list.sort(key=lambda x: x['name'].lower())
 
     return {
-        "globalStats": global_stats,
-        "processes": processes_list
+        "type": "live_data", # --- MODIFIED: Added a type for regular updates
+        "payload": {
+            "globalStats": global_stats,
+            "processes": processes_list
+        }
     }
 
-# --- WebSocket Handler (Corrected) ---
+# --- MODIFIED: WebSocket Handler is significantly updated ---
 async def handler(websocket):
-    """Handles connections, running tasks for periodic updates and incoming messages."""
     print(f"✅ Frontend connected from {websocket.remote_address}")
 
+    # --- 1. Send initial policies as the very first message ---
+    try:
+        initial_policies = get_all_policies_from_firebase()
+        initial_message = {
+            "type": "initial_policies",
+            "payload": initial_policies
+        }
+        await websocket.send(json.dumps(initial_message))
+    except Exception as e:
+        print(f"Error sending initial policies: {e}")
+
+    # --- 2. Create tasks for sending live data and receiving commands ---
     async def send_periodic_updates():
-        """This task sends live process data every 2 seconds."""
         while True:
             try:
-                stats = await get_aggregated_network_stats()
-                await websocket.send(json.dumps(stats))
+                stats_message = await get_aggregated_network_stats()
+                await websocket.send(json.dumps(stats_message))
                 await asyncio.sleep(2)
             except websockets.exceptions.ConnectionClosed:
-                break # Exit the loop if connection is closed
+                break
             except Exception as e:
                 print(f"Error in send_periodic_updates: {e}")
 
     async def handle_incoming_messages():
-        """This task listens for messages from the frontend."""
         async for message in websocket:
             try:
                 data = json.loads(message)
-                if data.get('action') == 'save_policy':
+                action = data.get('action')
+                payload = data.get('payload')
+
+                if action == 'save_policy':
                     print("Received 'save_policy' request.")
-                    save_policy_to_firebase(data.get('payload'))
+                    save_policy_to_firebase(payload)
+                elif action == 'delete_policy':
+                    print("Received 'delete_policy' request.")
+                    delete_policy_from_firebase(payload)
+                    
             except json.JSONDecodeError:
                 if message == 'rescan':
                     print("Received 'rescan' request. Sending fresh data.")
-                    stats = await get_aggregated_network_stats()
-                    await websocket.send(json.dumps(stats))
+                    stats_message = await get_aggregated_network_stats()
+                    await websocket.send(json.dumps(stats_message))
             except Exception as e:
                 print(f"Error in handle_incoming_messages: {e}")
 
-    # Run both tasks concurrently and wait for one to finish
     sender_task = asyncio.create_task(send_periodic_updates())
     receiver_task = asyncio.create_task(handle_incoming_messages())
     done, pending = await asyncio.wait(
@@ -170,9 +213,7 @@ async def handler(websocket):
         task.cancel()
     print(f"❌ Frontend disconnected from {websocket.remote_address}")
 
-# --- Main Execution ---
 async def main():
-    """Starts the WebSocket server."""
     print(f"🚀 Starting Aggregated Process Monitor server on ws://localhost:8765")
     async with websockets.serve(handler, "localhost", 8765):
         await asyncio.Future()
