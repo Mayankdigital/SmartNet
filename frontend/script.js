@@ -7,7 +7,6 @@ socket.onopen = function(e) {
     console.log("[open] Connection established to NetScheduler Pro backend.");
 };
 
-// --- MODIFIED: This entire function is updated to handle different message types ---
 socket.onmessage = function(event) {
     try {
         const data = JSON.parse(event.data);
@@ -15,11 +14,9 @@ socket.onmessage = function(event) {
         // Handle different message types from the backend
         if (data.type === 'initial_policies') {
             console.log("Received initial policies from backend:", data.payload);
-            // Store policies in our global object for easy lookup by lowercase name
             data.payload.forEach(policy => {
                 savedPolicies[policy.name.toLowerCase()] = policy;
             });
-            // Request an immediate scan after getting policies to populate the view
             if (socket.readyState === WebSocket.OPEN) {
                 socket.send('rescan');
             }
@@ -38,7 +35,7 @@ socket.onmessage = function(event) {
             document.getElementById('latency').textContent = `${Math.floor(liveStats.latency)}ms`;
             document.getElementById('efficiency').textContent = `${liveStats.efficiency.toFixed(1)}%`;
 
-            // 2. Update the process list (this will now use the savedPolicies)
+            // 2. Update the process list with individual PIDs
             updateProcessList(liveData.processes);
 
             // 3. Re-render the visible application list
@@ -66,69 +63,74 @@ function generateColorFromString(str) {
     return `linear-gradient(135deg, ${color}, #222)`;
 }
 
-// --- MODIFIED: This function now applies saved policies when creating new apps ---
 function updateProcessList(backendProcesses) {
-    const backendNames = new Set(backendProcesses.map(p => p.name.toLowerCase()));
+    const backendPids = new Set(backendProcesses.map(p => p.pid));
 
     backendProcesses.forEach(proc => {
         const cleanProcName = proc.name.replace(/\.exe$/i, '');
-        const existingApp = applications.find(app => app.name.toLowerCase() === cleanProcName.toLowerCase());
+        const existingApp = applications.find(app => app.pid === proc.pid);
         
-        let downSpeed = proc.downloadSpeed;
-        let downUnit = 'KB/s';
-        if (downSpeed > 1024) { downSpeed /= 1024; downUnit = 'MB/s'; }
-
-        let upSpeed = proc.uploadSpeed;
-        let upUnit = 'KB/s';
-        if (upSpeed > 1024) { upSpeed /= 1024; upUnit = 'MB/s'; }
-        
-        const currentSpeedDown = `${downSpeed.toFixed(downSpeed > 0 ? 1 : 0)} ${downUnit}`;
-        const currentSpeedUp = `${upSpeed.toFixed(upSpeed > 0 ? 1 : 0)} ${upUnit}`;
+        const downloadSpeedKB = proc.downloadSpeed;
+        const uploadSpeedKB = proc.uploadSpeed;
 
         if (existingApp) {
-            // Update live data and ensure it's marked as active
-            existingApp.speed = currentSpeedDown;
-            existingApp.uploadSpeed = currentSpeedUp;
-            existingApp.pid = proc.pid;
+            existingApp.speed = formatSpeed(downloadSpeedKB);
+            existingApp.uploadSpeed = formatSpeed(uploadSpeedKB);
+            existingApp.downloadSpeedNumeric = downloadSpeedKB;
+            existingApp.uploadSpeedNumeric = uploadSpeedKB;
+            existingApp.protocolPercent = proc.protocol_tcp_percent;
+            existingApp.instance_title = proc.instance_title;
+            // Prioritize favicon URL from backend for tab logos
+            existingApp.logoUrl = proc.favicon || resolveLogoUrl(cleanProcName);
             existingApp.active = true; 
         } else {
-            // Check for a saved policy for this new application
             const savedPolicy = savedPolicies[cleanProcName.toLowerCase()];
 
             const newApp = {
                 pid: proc.pid,
                 name: cleanProcName.charAt(0).toUpperCase() + cleanProcName.slice(1),
+                instance_title: proc.instance_title,
                 logo: cleanProcName.charAt(0).toUpperCase(),
+                // Prioritize favicon URL from backend for tab logos
+                logoUrl: proc.favicon || resolveLogoUrl(cleanProcName),
                 category: "System Process",
                 protocol: "TCP/UDP",
-                speed: currentSpeedDown,
-                uploadSpeed: currentSpeedUp,
+                protocolPercent: proc.protocol_tcp_percent,
+                speed: formatSpeed(downloadSpeedKB),
+                uploadSpeed: formatSpeed(uploadSpeedKB),
+                downloadSpeedNumeric: downloadSpeedKB,
+                uploadSpeedNumeric: uploadSpeedKB,
                 active: true,
                 color: generateColorFromString(cleanProcName),
-                
-                // Apply saved policy values or use defaults
                 priority: savedPolicy ? savedPolicy.priority : "medium",
                 speedLimit: savedPolicy ? `${savedPolicy.downloadCap} MB/s` : "No Limit",
                 downloadCap: savedPolicy ? savedPolicy.downloadCap : 100,
                 uploadCap: savedPolicy ? savedPolicy.uploadCap : 50,
                 appliedModes: savedPolicy ? savedPolicy.appliedModes : [],
-                policyApplied: !!savedPolicy // Set to true if a policy was found, false otherwise
+                policyApplied: !!savedPolicy
             };
             applications.push(newApp);
         }
     });
 
-    // This loop deactivates processes that are no longer running
     applications.forEach(app => {
-        const exeName = app.name.toLowerCase() + '.exe';
-        if (!backendNames.has(exeName) && !backendNames.has(app.name.toLowerCase())) {
+        if (!backendPids.has(app.pid)) {
              if (app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY') {
-                app.active = false;
-                app.speed = "0 KB/s";
-                app.uploadSpeed = "0 KB/s";
+                 app.active = false;
+                 app.speed = "0 KB/s";
+                 app.uploadSpeed = "0 KB/s";
+                 app.downloadSpeedNumeric = 0;
+                 app.uploadSpeedNumeric = 0;
              }
         }
     });
+}
+
+function formatSpeed(speedInKB) {
+    if (speedInKB > 1024) {
+        return `${(speedInKB / 1024).toFixed(1)} MB/s`;
+    }
+    return `${speedInKB.toFixed(speedInKB > 0 ? 1 : 0)} KB/s`;
 }
 
 
@@ -146,10 +148,81 @@ socket.onerror = function(error) {
     showNotification('Could not connect to backend!', 'error');
 };
 
-const initialApplications = [];
+const APP_LOGO_MAP = {
+    // Browsers
+    'chrome': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/chrome/chrome-original.svg',
+    'firefox': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/firefox/firefox-original.svg',
+    'edge': 'https://img.icons8.com/color/512/ms-edge-new.png',
+    'msedge': 'https://img.icons8.com/color/512/ms-edge-new.png',
+    'opera': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/opera/opera-original.svg',
+    'brave': 'https://img.icons8.com/color/512/brave-web-browser.png',
+    'safari': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/safari/safari-original.svg',
+
+    // Dev Tools & System
+    'code': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg',
+    'visual studio code': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg',
+    'terminal': 'https://img.icons8.com/fluency/512/console.png',
+    'powershell': 'https://img.icons8.com/color/512/powershell.png',
+    'cmd': 'https://img.icons8.com/fluency/512/console.png',
+    'explorer': 'https://img.icons8.com/color/512/folder-invoices--v1.png',
+    'file explorer': 'https://img.icons8.com/color/512/folder-invoices--v1.png',
+    'node': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg',
+    'python': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg',
+    'docker': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg',
+    'postman': 'https://img.icons8.com/color/512/postman-api.png',
+    'git': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg',
+    'github desktop': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg',
+    'conhost': 'https://img.icons8.com/fluency/512/console.png',
+    
+    // Communication
+    'discord': 'https://img.icons8.com/color/512/discord--v2.png',
+    'slack': 'https://img.icons8.com/color/512/slack-new.png',
+    'zoom': 'https://img.icons8.com/color/512/zoom.png',
+    'teams': 'https://img.icons8.com/color/512/microsoft-teams-2019.png',
+    'whatsapp': 'https://img.icons8.com/color/512/whatsapp--v1.png',
+    'telegram': 'https://img.icons8.com/color/512/telegram-app.png',
+
+    // Media & Games
+    'spotify': 'https://img.icons8.com/color/512/spotify--v1.png',
+    'vlc': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vlc/vlc-original.svg',
+    'steam': 'https://img.icons8.com/fluency/512/steam.png',
+    'epicgames': 'https://img.icons8.com/fluency/512/epic-games.png',
+    'battlenet': 'https://img.icons8.com/color/512/battle-net.png',
+    'origin': 'https://img.icons8.com/fluency/512/origin.png',
+    'league of legends': 'https://img.icons8.com/color/512/league-of-legends.png',
+    'valorant': 'https://img.icons8.com/color/512/valorant.png',
+    
+    // Office & Productivity
+    'word': 'https://img.icons8.com/color/512/microsoft-word-2019--v2.png',
+    'excel': 'https://img.icons8.com/color/512/microsoft-excel-2019--v2.png',
+    'powerpoint': 'https://img.icons8.com/color/512/microsoft-powerpoint-2019--v2.png',
+    'outlook': 'https://img.icons8.com/color/512/microsoft-outlook-2019--v2.png',
+    'onedrive': 'https://img.icons8.com/color/512/microsoft-onedrive-2019.png',
+    'notion': 'https://img.icons8.com/color/512/notion-app.png',
+    'obsidian': 'https://img.icons8.com/color/512/obsidian.png',
+    'acrobat': 'https://img.icons8.com/color/512/adobe-acrobat-reader.png',
+    
+    // Other
+    'everything': 'https://img.icons8.com/color/512/search--v1.png',
+    'crossdeviceresume': 'https://img.icons8.com/fluency/512/synchronize.png'
+};
+
+function sanitizeNameForLookup(name) {
+    return name.toLowerCase().replace(/\.exe$/i, '').replace(/[^a-z0-9\s]+/g, '').trim();
+}
+
+function resolveLogoUrl(appName) {
+    const key = sanitizeNameForLookup(appName);
+    if (APP_LOGO_MAP[key]) return APP_LOGO_MAP[key];
+    const keywords = Object.keys(APP_LOGO_MAP);
+    for (const kw of keywords) {
+        if (key.includes(kw)) return APP_LOGO_MAP[kw];
+    }
+    return null;
+}
 
 let applications = [];
-let savedPolicies = {}; // --- NEW: Global object to store policies from the backend ---
+let savedPolicies = {};
 
 const POLICY_MODES = [
     { value: 'work', label: 'Work Mode' },
@@ -159,33 +232,6 @@ const POLICY_MODES = [
     { value: 'custom', label: 'Custom' }
 ];
 
-function getInitialApplicationState(name) {
-    const initial = initialApplications.find(app => app.name === name);
-    return initial ? JSON.parse(JSON.stringify(initial)) : null;
-}
-
-function createPolicyResetLogEntry(app, pid) {
-    return {
-        name: app.name,
-        logo: app.logo,
-        category: 'DEFAULT POLICY', 
-        protocol: 'DEFAULT', 
-        speed: "0 KB/s", 
-        priority: 'low',
-        speedLimit: 'DEFAULT',
-        active: false,
-        color: app.color,
-        uploadSpeed: "0 KB/s",
-        downloadCap: 0,
-        uploadCap: 0,
-        pid: pid,
-        timestamp: new Date().toLocaleTimeString(),
-        appliedModes: [],
-        policyApplied: false 
-    };
-}
-
-
 let downloadChart, uploadChart, latencyChart, efficiencyChart, bandwidthChart, protocolDistributionChart, packetLossChart;
 let downloadData = Array(10).fill(0);
 let uploadData = Array(10).fill(0);
@@ -194,16 +240,15 @@ let efficiencyData = Array(10).fill(0);
 let bandwidthTimeData = [];
 let bandwidthDownloadData = [];
 let bandwidthUploadData = [];
-
 let protocolData = [34, 33, 33];
 let packetLossData = Array(7).fill(0);
-
 let currentEditingAppIndex = -1;
+let expandedGroupState = {}; // State to remember which groups are expanded
 
 function initDashboard() {
     initializeCharts();
     generateInitialBandwidthData();
-    renderApplications('dashboard'); 
+    renderApplications('dashboard');
     setupEventListeners();
     startRealTimeUpdates();
 }
@@ -296,110 +341,190 @@ function renderApplications(view) {
 
     container.innerHTML = '';
     
-    let listToRender = applications; 
-    
-    if (view === 'dashboard') {
-        listToRender = applications.filter(app => app.policyApplied === true);
+    let listToRender = [...applications];
 
-        if (listToRender.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state-message">
-                    <div class="empty-state-icon">🛡️</div>
-                    <h3>No Policies Applied</h3>
-                    <p>Go to the <b>Real-time Monitor</b> tab to apply a policy to an application. It will then appear here.</p>
-                </div>
-            `;
-            return;
-        }
-    }
-    
     if (view === 'monitor') {
         const searchInput = document.getElementById('processSearchInput');
         const searchTerm = searchInput.value.toLowerCase().trim();
-
         if (searchTerm) {
-            listToRender = listToRender.filter(app => 
-                app.name.toLowerCase().includes(searchTerm)
-            );
+            listToRender = listToRender.filter(app => app.name.toLowerCase().includes(searchTerm) || (app.instance_title && app.instance_title.toLowerCase().includes(searchTerm)));
         }
 
         const filterValue = document.getElementById('policyStatusFilter').value;
         if (filterValue === 'applied') {
-            listToRender = listToRender.filter(app => app.policyApplied === true && app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY');
+            listToRender = listToRender.filter(app => app.policyApplied === true);
         } else if (filterValue === 'default') {
-            listToRender = listToRender.filter(app => app.policyApplied === false || app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY');
+            listToRender = listToRender.filter(app => app.policyApplied === false);
         }
+
+        const groupedApps = listToRender.reduce((acc, app) => {
+            if (!acc[app.name]) {
+                acc[app.name] = {
+                    processes: [],
+                    totalDownloadKB: 0,
+                    totalUploadKB: 0,
+                    logo: app.logo,
+                    logoUrl: resolveLogoUrl(app.name),
+                    color: app.color,
+                    policyApplied: false,
+                    appliedModes: new Set()
+                };
+            }
+            acc[app.name].processes.push(app);
+            acc[app.name].totalDownloadKB += app.downloadSpeedNumeric || 0;
+            acc[app.name].totalUploadKB += app.uploadSpeedNumeric || 0;
+            if (app.policyApplied) {
+                acc[app.name].policyApplied = true;
+            }
+            if(app.appliedModes) {
+                app.appliedModes.forEach(mode => acc[app.name].appliedModes.add(mode));
+            }
+            return acc;
+        }, {});
+
+        Object.keys(groupedApps).sort((a, b) => {
+            const groupA = groupedApps[a];
+            const groupB = groupedApps[b];
+            const totalA = groupA.totalDownloadKB + groupA.totalUploadKB;
+            const totalB = groupB.totalDownloadKB + groupB.totalUploadKB;
+            return totalB - totalA;
+        }).forEach(appName => {
+            const group = groupedApps[appName];
+            const isGroupActive = group.processes.some(p => p.active);
+            const statusClass = isGroupActive ? '' : 'inactive';
+            const policyCheckMark = group.policyApplied ? `<span style="color: #00c864; font-size: 16px; margin-left: 8px;">✅</span>` : '';
+            
+            const modes = Array.from(group.appliedModes);
+            const modesDisplay = modes.map(mode => {
+                const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+                return `<span class="app-mode-badge">${modeLabel} Mode</span>`;
+            }).join('');
+            
+            const countOrPid = group.processes.length === 1
+                ? `<span class="app-pid-badge" style="margin-left: 8px; font-size: 12px; color: #7a8a99; background-color: #f0f4f8; padding: 2px 6px; border-radius: 4px; font-weight: 600;">PID: ${group.processes[0].pid}</span>`
+                : `(${group.processes.length})`;
+            
+            const isExpandable = group.processes.length > 1;
+            
+            const isCurrentlyExpanded = expandedGroupState[appName] === true;
+            const iconHtml = isExpandable ? `<span class="expand-icon" style="transform: ${isCurrentlyExpanded ? 'rotate(90deg)' : 'rotate(0deg)'};">▶</span>` : '';
+
+            const groupElement = document.createElement('div');
+            groupElement.className = 'app-group';
+            const childrenHtml = `
+                <div class="app-item app-group-header ${statusClass}">
+                    <div class="app-logo-small" style="${group.logoUrl ? `background-image: url('${group.logoUrl}'); background-color: #fff;` : `background: ${group.color}; color: #fff;`} flex-shrink: 0;">${group.logoUrl ? '' : group.logo}</div>
+                    <div class="app-info">
+                        <div class="app-details">
+                            <div class="app-name-text">${appName} ${countOrPid} ${policyCheckMark} ${modesDisplay}</div>
+                        </div>
+                        <div class="app-speeds-monitor">
+                            <div class="app-download-speed">⬇️ ${formatSpeed(group.totalDownloadKB)}</div>
+                            <div class="app-upload-speed">⬆️ ${formatSpeed(group.totalUploadKB)}</div>
+                        </div>
+                        <div class="app-controls">
+                            <button class="policy-btn" onclick="openPolicyEditorByName('${appName}')">POLICY</button>
+                            ${iconHtml}
+                        </div>
+                    </div>
+                </div>
+                ${isExpandable ? `<div class="app-group-children" style="display: ${isCurrentlyExpanded ? 'block' : 'none'};">
+                    ${group.processes.map(proc => {
+                        const originalIndex = applications.findIndex(a => a.pid === proc.pid);
+                        
+                        const idLabel = String(proc.pid).startsWith('tab_') ? 'Tab ID' : 'PID';
+                        const displayId = String(proc.pid).replace('tab_', '');
+                        
+                        const titleDisplay = proc.instance_title 
+                          ? `<div class="instance-title" title="${proc.instance_title}">${proc.instance_title}</div>`
+                          : `<div class="instance-title">${proc.name}</div>`;
+                        
+                        const instanceLogoUrl = proc.logoUrl || group.logoUrl;
+
+                        return `
+                        <div class="app-item app-instance-item ${!proc.active ? 'inactive' : ''}">
+                            <div class="app-logo-container">
+                                <div class="app-logo-small instance-logo" style="${instanceLogoUrl ? `background-image: url('${instanceLogoUrl}'); background-color: #fff;` : `background: ${proc.color}; color: #fff;`}"></div>
+                                <div class="app-pid">${idLabel}: ${displayId}</div>
+                            </div>
+                            <div class="app-info">
+                                <div class="instance-details">
+                                    ${titleDisplay}
+                                    <div class="protocol-display">
+                                        <div class="protocol-labels">
+                                            <span>TCP: ${proc.protocolPercent}%</span>
+                                            <span>UDP: ${100 - proc.protocolPercent}%</span>
+                                        </div>
+                                        <div class="protocol-bar-container">
+                                            <div class="protocol-bar-inner" style="width: ${proc.protocolPercent}%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="app-speeds-monitor">
+                                    <div class="app-download-speed">⬇️ ${proc.speed}</div>
+                                    <div class="app-upload-speed">⬆️ ${proc.uploadSpeed}</div>
+                                </div>
+                                <div class="app-controls">
+                                    <button class="kill-app-btn instance-kill" onclick="killApp(${originalIndex})">KILL</button>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>` : ''}`;
+
+            groupElement.innerHTML = childrenHtml;
+            container.appendChild(groupElement);
+
+            if (isExpandable) {
+                groupElement.querySelector('.app-group-header').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('policy-btn')) return;
+                    
+                    expandedGroupState[appName] = !expandedGroupState[appName];
+                    
+                    const children = groupElement.querySelector('.app-group-children');
+                    const icon = groupElement.querySelector('.expand-icon');
+                    
+                    if (expandedGroupState[appName]) {
+                        children.style.display = 'block';
+                        icon.style.transform = 'rotate(90deg)';
+                    } else {
+                        children.style.display = 'none';
+                        icon.style.transform = 'rotate(0deg)';
+                    }
+                });
+            }
+        });
+        return;
     }
 
-    listToRender.forEach((app) => {
-        if (view === 'dashboard' && (app.category === 'KILLED PROCESS' || app.category === 'DEFAULT POLICY')) {
-            return;
-        }
+    // --- Dashboard View: Original Logic ---
+    listToRender = applications.filter(app => app.policyApplied === true && app.category !== 'KILLED PROCESS' && app.category !== 'DEFAULT POLICY');
 
-        const originalIndex = applications.findIndex(a => a.name.toLowerCase() === app.name.toLowerCase());
-        
+    if (listToRender.length === 0) {
+        container.innerHTML = `<div class="empty-state-message"><div class="empty-state-icon">🛡️</div><h3>No Policies Applied</h3><p>Go to the <b>Real-time Monitor</b> tab to apply a policy to an application. It will then appear here.</p></div>`;
+        return;
+    }
+
+    listToRender.sort((a, b) => (b.downloadSpeedNumeric + b.uploadSpeedNumeric) - (a.downloadSpeedNumeric + a.uploadSpeedNumeric)).forEach((app) => {
+        const originalIndex = applications.findIndex(a => a.pid === app.pid);
         const appElement = document.createElement('div');
-        const statusClass = (view === 'monitor' && !app.active) ? 'inactive' : (app.active ? 'active' : '');
-        appElement.className = `app-item ${statusClass}`;
-
-        let appInfoContent;
-
-        const modesDisplay = app.appliedModes && app.appliedModes.length > 0
-            ? `<span class="app-mode-badge">${app.appliedModes.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}</span>`
-            : '';
+        appElement.className = `app-item`;
         
-        const policyCheckMarkMonitor = app.policyApplied 
-            ? `<span style="color: #00c864; font-size: 16px; margin-left: 8px;">✅</span>`
-            : '';
-
-        if (view === 'monitor') {
-            const speedDisplayDown = `⬇️ ${app.speed}`;
-            const speedDisplayUp = `⬆️ ${app.uploadSpeed}`;
-            const protocolDisplay = app.active ? app.protocol.split('/')[0] : app.protocol;
-            
-            let downloadColor, uploadColor;
-            
-            if (app.category === 'KILLED PROCESS') {
-                downloadColor = '#ff3b30';
-                uploadColor = '#ff3b30'; 
-            } else if (app.active) {
-                downloadColor = '#00c864';
-                uploadColor = '#ff9500';
-            } else {
-                downloadColor = '#7a8a99';
-                uploadColor = '#7a8a99';
-            }
-            
-            appInfoContent = `
-                <div class="app-details">
-                    <div class="app-name-text" style="color: #1a2332;">${app.name} ${policyCheckMarkMonitor}</div>
-                    <div class="app-category">
-                        <span style="color: #7a8a99;">${app.pid}</span>
-                    </div>
-                </div>
-                <div class="app-speeds-monitor">
-                    <div class="app-download-speed" style="color: ${downloadColor};">
-                        <span>${speedDisplayDown}</span>
-                    </div>
-                    <div class="app-upload-speed" style="color: ${uploadColor};">
-                        <span>${speedDisplayUp}</span>
-                    </div>
-                </div>
-                <div class="app-category">
-                    Current: <span class="app-protocol-badge">${protocolDisplay}</span>
-                </div>
-                <div class="app-controls">
-                    <button class="policy-btn" onclick="openPolicyEditor(${originalIndex})">POLICY</button>
-                </div>
-            `;
-        } else {
-            appInfoContent = `
-                <div class="app-details">
-                    <div class="app-name-text">${app.name}</div>
+        const modes = app.appliedModes || [];
+        const modesDisplay = modes.map(mode => {
+            const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+            return `<span class="app-mode-badge">${modeLabel} Mode</span>`;
+        }).join('');
+        
+        appElement.innerHTML = `
+            <div class="app-logo-small" style="${app.logoUrl ? `background-image: url('${app.logoUrl}'); background-color: #fff;` : `background: ${app.color}; color: #fff;`}">${app.logoUrl ? '' : app.logo}</div>
+            <div class="app-info">
+                 <div class="app-details">
+                    <div class="app-name-text">${app.name} ${modesDisplay}</div>
                     <div class="app-category">
                         <span>${app.category}</span>
                         <span class="app-protocol-badge">${app.protocol}</span>
-                        ${modesDisplay}
                     </div>
                 </div>
                 <div class="app-performance">
@@ -411,18 +536,13 @@ function renderApplications(view) {
                     <div class="toggle-switch ${app.active ? 'active' : ''}" onclick="toggleApp(${originalIndex})">
                         <div class="toggle-slider"></div>
                     </div>
-                    <button class="kill-app-btn" onclick="killApp(${originalIndex}, 'dashboard')">KILL</button>
+                    <button class="kill-app-btn" onclick="killApp(${originalIndex})">KILL</button>
                 </div>
-            `;
-        }
-
-        appElement.innerHTML = `
-            <div class="app-logo-small" style="background: ${app.color}">${app.logo}</div>
-            <div class="app-info">${appInfoContent}</div>
-        `;
+            </div>`;
         container.appendChild(appElement);
     });
 }
+
 
 function requestProcessRescan() {
     if (socket.readyState === WebSocket.OPEN) {
@@ -477,7 +597,6 @@ function killApp(index) {
     let appToKill = applications[index];
     if (!appToKill) return;
 
-    // Send delete command to the backend
     if (socket.readyState === WebSocket.OPEN) {
         const message = {
             action: 'delete_policy',
@@ -486,15 +605,18 @@ function killApp(index) {
         socket.send(JSON.stringify(message));
         console.log("Sent delete_policy command for:", appToKill.name);
     }
-
-    // Reset the local state
-    appToKill.active = false;
-    appToKill.priority = 'low'; 
-    appToKill.speedLimit = 'DEFAULT';
-    appToKill.policyApplied = false;
-    appToKill.appliedModes = [];
-    appToKill.protocol = 'DEFAULT';
-    appToKill.category = 'DEFAULT POLICY';
+    
+    applications.forEach(app => {
+        if (app.name === appToKill.name) {
+            app.active = false;
+            app.priority = 'low'; 
+            app.speedLimit = 'DEFAULT';
+            app.policyApplied = false;
+            app.appliedModes = [];
+            app.protocol = 'DEFAULT';
+            app.category = 'DEFAULT POLICY';
+        }
+    });
 
     renderApplications('dashboard');
     renderApplications('monitor');
@@ -535,19 +657,18 @@ function renderModeCheckboxes(appliedModes) {
     });
 }
 
-function openPolicyEditor(index) {
-    const app = applications[index];
+function openPolicyEditorByName(appName) {
+    const app = applications.find(a => a.name === appName);
     if (!app) {
-        console.error("Could not find application to open policy editor for.");
+        console.error(`Could not find application "${appName}" to open policy editor for.`);
         return;
     }
-    currentEditingAppIndex = index;
+    currentEditingAppIndex = applications.findIndex(a => a.name === appName);
 
     document.getElementById('modalAppName').textContent = `Policy Editor for ${app.name}`;
     renderModeCheckboxes(app.appliedModes || []);
 
-    let currentPriority = app.active === false ? 'block' : app.priority;
-    document.getElementById('prioritySelect').value = currentPriority || 'medium'; 
+    document.getElementById('prioritySelect').value = app.priority || 'medium'; 
 
     const dlSlider = document.getElementById('downloadLimitSlider');
     dlSlider.value = app.downloadCap;
@@ -572,66 +693,60 @@ function savePolicyChanges() {
         return;
     }
 
-    let app = applications[currentEditingAppIndex];
-    if (!app) return;
+    let representativeApp = applications[currentEditingAppIndex];
+    if (!representativeApp) return;
 
+    const appName = representativeApp.name;
     const newPriority = document.getElementById('prioritySelect').value;
     const newDownloadCap = parseInt(document.getElementById('downloadLimitSlider').value);
     const newUploadCap = parseInt(document.getElementById('uploadLimitSlider').value);
     const selectedModes = Array.from(document.querySelectorAll('#policyModeCheckboxes input[name="policyMode"]:checked')).map(cb => cb.value);
 
-    if (newPriority === 'block') {
-        // Send delete command to the backend when blocking
-        if (socket.readyState === WebSocket.OPEN) {
-            const message = {
-                action: 'delete_policy',
-                payload: { name: app.name }
-            };
-            socket.send(JSON.stringify(message));
-            console.log("Sent delete_policy command via 'Block' for:", app.name);
+    const applyChanges = (app) => {
+        if (newPriority === 'block') {
+             app.active = false;
+             app.priority = 'low'; 
+             app.speedLimit = 'DEFAULT'; 
+             app.policyApplied = false;
+             app.appliedModes = [];
+             app.protocol = 'DEFAULT';
+             app.category = 'DEFAULT POLICY';
+        } else {
+            app.active = true;
+            app.priority = newPriority;
+            app.downloadCap = newDownloadCap;
+            app.uploadCap = newUploadCap;
+            app.appliedModes = selectedModes;
+            app.protocol = "TCP/UDP";
+            app.category = "System Process";
+            app.speedLimit = `${newDownloadCap} MB/s`; 
+            app.policyApplied = true;
         }
+    };
 
-        // Reset local state
-        app.active = false;
-        app.priority = 'low'; 
-        app.speedLimit = 'DEFAULT'; 
-        app.policyApplied = false;
-        app.appliedModes = [];
-        app.protocol = 'DEFAULT';
-        app.category = 'DEFAULT POLICY';
-        showNotification(`Policy for ${app.name} has been reset and removed.`, 'error');
+    applications.forEach(app => {
+        if (app.name === appName) {
+            applyChanges(app);
+        }
+    });
+
+    if (newPriority === 'block') {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ action: 'delete_policy', payload: { name: appName } }));
+        }
+        showNotification(`Policy for ${appName} has been reset and removed.`, 'error');
     } else {
-        // Update the app's state in the frontend
-        app.active = true;
-        app.priority = newPriority;
-        app.downloadCap = newDownloadCap;
-        app.uploadCap = newUploadCap;
-        app.appliedModes = selectedModes;
-        app.protocol = "TCP/UDP";
-        app.category = "System Process";
-        app.speedLimit = `${newDownloadCap} MB/s`; 
-        app.policyApplied = true;
-
-        // Send the policy data to the backend to be saved
         if (socket.readyState === WebSocket.OPEN) {
             const policyPayload = {
-                name: app.name,
-                priority: app.priority,
-                downloadCap: app.downloadCap,
-                uploadCap: app.uploadCap,
-                appliedModes: app.appliedModes
+                name: appName,
+                priority: newPriority,
+                downloadCap: newDownloadCap,
+                uploadCap: newUploadCap,
+                appliedModes: selectedModes
             };
-            const message = {
-                action: 'save_policy',
-                payload: policyPayload
-            };
-            socket.send(JSON.stringify(message));
-            console.log("Sent save_policy data to backend:", policyPayload);
-        } else {
-            console.error("Cannot save policy, WebSocket is not open.");
+            socket.send(JSON.stringify({ action: 'save_policy', payload: policyPayload }));
         }
-
-        showNotification(`Policy for ${app.name} saved and applied successfully!`, 'success');
+        showNotification(`Policy for ${appName} saved and applied successfully!`, 'success');
     }
 
     renderApplications('dashboard');
@@ -832,3 +947,4 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+

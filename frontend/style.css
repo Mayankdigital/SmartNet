@@ -333,9 +333,7 @@ body {
     border-radius: 20px;
     padding: 20px;
     margin-bottom: 32px;
-    /* --- CRITICAL CHANGE BELOW --- */
-    max-height: 300px; /* Adjusted to show approximately 3 rows (3 * ~100px) */
-    /* --- CRITICAL CHANGE ABOVE --- */
+    max-height: 500px;
     overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 100, 255, 0.08);
 }
@@ -366,15 +364,19 @@ body {
     align-items: center;
     gap: 20px;
     padding: 18px 20px;
-    margin-bottom: 10px;
-    background: linear-gradient(135deg, rgba(248, 250, 253, 0.8), rgba(255, 255, 255, 0.9));
     border: 1px solid rgba(0, 100, 255, 0.1);
     border-radius: 14px;
     transition: all 0.3s ease;
     position: relative;
 }
-
-.app-item:hover {
+.app-group {
+    margin-bottom: 12px;
+}
+.app-group-header {
+    background: linear-gradient(135deg, rgba(248, 250, 253, 0.8), rgba(255, 255, 255, 0.9));
+    cursor: pointer;
+}
+.app-group-header:hover {
     transform: translateY(-2px);
     background: white;
     box-shadow: 0 8px 25px rgba(0, 100, 255, 0.12);
@@ -406,23 +408,25 @@ body {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
-/* CORRECTED: Dashboard App Info (Your original layout) */
-.dashboard-content#dashboard .app-info {
-    display: grid; /* Added display grid back for clarity */
-    grid-template-columns: 2fr 1.5fr 0.8fr auto; /* Original Dashboard columns: Name/Category, Speed/Limit, Priority, Controls */
-    gap: 16px;
-    align-items: center;
-    flex: 1; /* Added flex: 1 back for full width */
-}
-
-/* MONITOR App Info (New, distinct layout) */
-.dashboard-content#monitor .app-info {
+.app-info {
     display: grid;
-    grid-template-columns: 2fr 1.5fr 1fr 0.8fr auto; /* Monitor columns: Name/PID, Up/Down Speeds, Protocol, Priority, Controls */
     gap: 16px;
     align-items: center;
     flex: 1;
 }
+/* Dashboard View Layout */
+.dashboard-content#dashboard .app-info {
+    grid-template-columns: 2fr 1.5fr 0.8fr auto;
+}
+/* Monitor View (Group Header) Layout */
+#monitorAppsContainer .app-group-header .app-info {
+    grid-template-columns: 2fr 1.5fr auto;
+}
+/* Monitor View (Instance) Layout */
+#monitorAppsContainer .app-instance-item .app-info {
+    grid-template-columns: 1.5fr 1fr auto;
+}
+
 
 .app-details {
     display: flex;
@@ -434,6 +438,8 @@ body {
     font-weight: 600;
     font-size: 16px;
     color: #1a2332;
+    display: flex;
+    align-items: center;
 }
 
 .app-category {
@@ -498,13 +504,13 @@ body {
     align-items: center;
     gap: 4px;
 }
-/* End Monitor-specific speed styles */
 
 
 .app-controls {
     display: flex;
     align-items: center;
     gap: 12px;
+    justify-self: end; /* Align controls to the right */
 }
 
 .priority-badge {
@@ -675,7 +681,6 @@ body {
     height: 100%;
 }
 
-/* NEW: Policy Button for Monitor View */
 .policy-btn {
     background: linear-gradient(135deg, rgba(0, 200, 100, 0.1), rgba(52, 199, 89, 0.1));
     border: 1.5px solid rgba(0, 200, 100, 0.3);
@@ -688,7 +693,7 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    min-width: 100px;
+    min-width: 80px;
     text-align: center;
 }
 
@@ -748,12 +753,7 @@ body {
         gap: 16px;
     }
     
-    .dashboard-content#dashboard .app-info {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-
-    .dashboard-content#monitor .app-info {
+    .dashboard-content .app-info {
         grid-template-columns: 1fr;
         gap: 8px;
     }
@@ -897,8 +897,6 @@ body {
     to { transform: scale(1); opacity: 1; }
 }
 
-/* ... [Existing CSS styles above] ... */
-
 /* --- NEW: Policy Mode Checkbox Group Styles --- */
 .mode-checkbox-group {
     display: flex;
@@ -921,7 +919,6 @@ body {
 }
 
 .mode-checkbox-group input[type="checkbox"] {
-    /* Hide default checkbox */
     position: absolute;
     opacity: 0;
     cursor: pointer;
@@ -937,27 +934,21 @@ body {
 }
 
 .mode-checkbox-group label span {
-    /* Custom checkmark appearance (optional, using text content here for simplicity) */
     margin-left: 5px;
 }
 
-/* ... [Existing CSS styles above] ... */
-
-/* Add this style block to your existing style.css */
 .app-mode-badge {
-    /* Use a slightly different color for distinction, but similar look */
     background: rgba(94, 92, 230, 0.1); 
-    color: #5e5ce6; /* A purple/indigo color */
+    color: #5e5ce6;
     padding: 3px 8px;
     border-radius: 5px;
     font-size: 10px;
     font-weight: 600;
     border: 1px solid rgba(94, 92, 230, 0.2);
-    margin-left: 8px; /* Space it apart from the protocol badge */
-    white-space: nowrap; /* Keep modes on one line */
+    margin-left: 8px;
+    white-space: nowrap;
 }   
 
-/* --- NEW: Styles for Empty Dashboard Message --- */
 .empty-state-message {
     text-align: center;
     padding: 60px 40px;
@@ -986,7 +977,6 @@ body {
     line-height: 1.6;
 }
 
-/* --- NEW: Search Input Styles --- */
 .search-input {
     padding: 8px 15px;
     border-radius: 8px;
@@ -996,7 +986,7 @@ body {
     color: #1a2332;
     outline: none;
     transition: all 0.3s ease;
-    width: 220px; /* Adjust width as needed */
+    width: 220px;
 }
 
 .search-input:focus {
@@ -1008,16 +998,184 @@ body {
     color: #9aa8b6;
 }
 
-
-/* --- NEW: Icon Button Styles --- */
 .refresh-btn.icon-btn {
-    width: 40px; /* Make it square */
+    width: 40px;
     height: 40px;
     padding: 0;
-    font-size: 18px; /* Make icon slightly larger */
+    font-size: 18px;
     justify-content: center;
 }
 
 .refresh-btn.icon-btn span {
     margin: 0;
+}
+
+/* --- NEW / MODIFIED Styles for Enhanced Monitor View --- */
+.app-item.inactive {
+    opacity: 0.5;
+    background: #f0f2f5;
+    box-shadow: none;
+}
+.app-item.inactive:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: rgba(0, 100, 255, 0.1);
+}
+
+.app-pid {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    color: #5a6c7d;
+    font-weight: 600;
+    text-align: center;
+    margin-top: 4px;
+}
+.app-logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.protocol-display {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.protocol-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #7a8a99;
+    font-weight: 500;
+}
+
+.protocol-bar-container {
+    width: 100%;
+    height: 8px;
+    background-color: rgba(255, 149, 0, 0.2); /* Orange background for UDP */
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.protocol-bar-inner {
+    height: 100%;
+    background-color: #0066ff; /* Blue for TCP */
+    border-radius: 4px;
+    transition: width 0.5s ease-in-out;
+}
+
+.expand-icon {
+    transition: transform 0.3s ease;
+    font-size: 16px;
+    color: #7a8a99;
+}
+
+.app-group-children {
+    padding-left: 40px;
+    border-left: 2px solid rgba(0, 102, 255, 0.1);
+    margin-left: 28px;
+    padding-top: 10px;
+}
+.app-instance-item {
+    background: #fdfdff;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+}
+.app-instance-item .instance-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    font-size: 12px;
+    box-shadow: none;
+}
+.app-instance-item .kill-app-btn.instance-kill {
+    padding: 6px 12px;
+    font-size: 10px;
+}/* Find and replace the existing .app-logo-small rule with this one */
+.app-logo-small {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    
+    /* NEW styles for using image logos */
+    background-color: #f0f4f8; /* A fallback background color */
+    background-size: 60%;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* You can also find and replace .app-item:hover .app-logo-small if you like */
+.app-item:hover .app-logo-small {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+/* Find and replace the existing .app-logo-small rule with this one */
+.app-logo-small {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    
+    /* Styles for image logos */
+    background-color: #f0f4f8; /* A fallback/placeholder background color */
+    background-size: 60%;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+
+    /* --- ADDED BACK: Styles for the fallback letter --- */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 22px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Optional: adds depth to the letter */
+}
+/* ... at the end of style.css ... */
+
+/* --- NEW Styles for Chrome Instance Display --- */
+
+/* Adjust the grid layout for instance items */
+#monitorAppsContainer .app-instance-item .app-info {
+    grid-template-columns: 2fr 1fr auto; /* Make title area larger */
+    gap: 12px;
+}
+
+.instance-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0; /* Important for text truncation */
+}
+
+.instance-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a2332;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Modify the PID display to be less prominent */
+.app-instance-item .app-pid {
+    font-size: 10px;
+    font-family: monospace;
+    color: #7a8a99;
+    background-color: #f0f4f8;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.app-instance-item .protocol-display {
+    margin-top: 4px;
 }
