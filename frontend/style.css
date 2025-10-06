@@ -333,10 +333,28 @@ body {
     border-radius: 20px;
     padding: 20px;
     margin-bottom: 32px;
-    max-height: 500px;
-    overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 100, 255, 0.08);
 }
+
+#dashboard .apps-container {
+    max-height: 340px; /* Height for ~3 items */
+    overflow-y: auto;
+}
+
+/* MODIFIED: Added scrolling for monitor app list */
+#monitor .apps-container {
+    max-height: 385px; /* Approx height of 3 app groups */
+    overflow-y: auto;
+}
+
+#dashboard .app-item {
+    margin-bottom: 12px;
+}
+
+#dashboard .app-item:last-child {
+    margin-bottom: 0;
+}
+
 
 .refresh-btn {
     background: linear-gradient(135deg, rgba(0, 102, 255, 0.1), rgba(0, 170, 255, 0.1));
@@ -392,20 +410,29 @@ body {
     width: 56px;
     height: 56px;
     border-radius: 14px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    
+    /* Styles for image logos */
+    background-color: #f0f4f8; /* A fallback/placeholder background color */
+    background-size: 60%;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+
+    /* --- ADDED BACK: Styles for the fallback letter --- */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
     color: white;
-    flex-shrink: 0;
+    font-weight: bold;
     font-size: 22px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Optional: adds depth to the letter */
 }
 
 .app-item:hover .app-logo-small {
     transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 .app-info {
@@ -418,20 +445,21 @@ body {
 .dashboard-content#dashboard .app-info {
     grid-template-columns: 2fr 1.5fr 0.8fr auto;
 }
-/* Monitor View (Group Header) Layout */
+/* MODIFIED: Monitor View (Group Header) Layout */
 #monitorAppsContainer .app-group-header .app-info {
-    grid-template-columns: 2fr 1.5fr auto;
+    grid-template-columns: 2.5fr 1fr auto; /* Adjusted for protocol bar */
+    align-items: center;
 }
 /* Monitor View (Instance) Layout */
 #monitorAppsContainer .app-instance-item .app-info {
-    grid-template-columns: 1.5fr 1fr auto;
+    grid-template-columns: 2fr 1fr auto;
 }
 
 
 .app-details {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px; /* Increased gap for protocol bar */
 }
 
 .app-name-text {
@@ -1023,18 +1051,23 @@ body {
 }
 
 .app-pid {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
+    font-family: monospace;
+    font-size: 11px;
     color: #5a6c7d;
+    background-color: #f0f4f8;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-top: 8px;
     font-weight: 600;
-    text-align: center;
-    margin-top: 4px;
 }
+
 .app-logo-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
+    width: 60px; /* Give it a fixed width */
+    flex-shrink: 0;
 }
 
 .protocol-display {
@@ -1077,7 +1110,11 @@ body {
     border-left: 2px solid rgba(0, 102, 255, 0.1);
     margin-left: 28px;
     padding-top: 10px;
+    max-height: 170px; /* Approx height of 2 instance items */
+    overflow-y: auto;
+    padding-right: 10px; /* Space for the scrollbar */
 }
+
 .app-instance-item {
     background: #fdfdff;
     padding-top: 12px;
@@ -1094,52 +1131,13 @@ body {
 .app-instance-item .kill-app-btn.instance-kill {
     padding: 6px 12px;
     font-size: 10px;
-}/* Find and replace the existing .app-logo-small rule with this one */
-.app-logo-small {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    flex-shrink: 0;
-    transition: all 0.3s ease;
-    
-    /* NEW styles for using image logos */
-    background-color: #f0f4f8; /* A fallback background color */
-    background-size: 60%;
-    background-repeat: no-repeat;
-    background-position: center;
-    border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-/* You can also find and replace .app-item:hover .app-logo-small if you like */
-.app-item:hover .app-logo-small {
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+.app-instance-item .policy-btn.instance-policy {
+    padding: 6px 12px;
+    font-size: 10px;
+    min-width: auto;
 }
-/* Find and replace the existing .app-logo-small rule with this one */
-.app-logo-small {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    flex-shrink: 0;
-    transition: all 0.3s ease;
-    
-    /* Styles for image logos */
-    background-color: #f0f4f8; /* A fallback/placeholder background color */
-    background-size: 60%;
-    background-repeat: no-repeat;
-    background-position: center;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-
-    /* --- ADDED BACK: Styles for the fallback letter --- */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 22px;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Optional: adds depth to the letter */
-}
-/* ... at the end of style.css ... */
 
 /* --- NEW Styles for Chrome Instance Display --- */
 
@@ -1174,8 +1172,17 @@ body {
     background-color: #f0f4f8;
     padding: 2px 4px;
     border-radius: 4px;
+    margin-top: 4px;
 }
 
 .app-instance-item .protocol-display {
     margin-top: 4px;
+}
+
+/* Active style for the sort button */
+.refresh-btn.icon-btn.active {
+    background: linear-gradient(135deg, #0066ff, #00aaff);
+    border-color: #0066ff;
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 102, 255, 0.3);
 }

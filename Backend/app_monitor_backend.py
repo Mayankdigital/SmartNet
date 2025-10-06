@@ -1,15 +1,15 @@
 import asyncio
 import json
-import psutil
-import websockets
+import psutil # type: ignore
+import websockets # type: ignore
 import time
 import random
-from ping3 import ping
+from ping3 import ping # type: ignore
 import traceback
 
-# --- Firebase (No changes needed) ---
-import firebase_admin
-from firebase_admin import credentials, firestore
+
+import firebase_admin # type: ignore
+from firebase_admin import credentials, firestore # type: ignore
 
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
@@ -47,9 +47,6 @@ def delete_policy_from_firebase(policy_data):
     except Exception as e:
         print(f"Error deleting policy from Firebase: {e}")
 
-# --- State Tracking & Core Logic ---
-
-# NEW: Global cache to store data from the Chrome extension
 CHROME_TAB_DATA = {}
 
 async def get_live_stats():
