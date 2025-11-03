@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WiFi Hotspot Manager - Loading</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 50%, #0284C7 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Animated background particles */
+.particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    animation: float 15s infinite;
+}
+
+.particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 12s; }
+.particle:nth-child(2) { left: 20%; animation-delay: 2s; animation-duration: 14s; }
+.particle:nth-child(3) { left: 30%; animation-delay: 4s; animation-duration: 16s; }
+.particle:nth-child(4) { left: 40%; animation-delay: 1s; animation-duration: 13s; }
+.particle:nth-child(5) { left: 50%; animation-delay: 3s; animation-duration: 15s; }
+.particle:nth-child(6) { left: 60%; animation-delay: 5s; animation-duration: 11s; }
+.particle:nth-child(7) { left: 70%; animation-delay: 2s; animation-duration: 17s; }
+.particle:nth-child(8) { left: 80%; animation-delay: 4s; animation-duration: 12s; }
+.particle:nth-child(9) { left: 90%; animation-delay: 1s; animation-duration: 14s; }
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(100vh) scale(0);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+        transform: translateY(90vh) scale(1);
+    }
+    90% {
+        opacity: 1;
+        transform: translateY(10vh) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(0) scale(0);
+    }
+}
+
+/* Main container */
+.splash-container {
+    text-align: center;
+    z-index: 10;
+    position: relative;
+    padding: 60px;
+    max-width: 700px;
+    width: 90%;
+}
+
+/* Animated WiFi Logo */
+.logo-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 40px;
+}
+
+.wifi-logo {
+    width: 200px;
+    height: 200px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Outer glow ring */
+.glow-ring {
+    position: absolute;
+    inset: -30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+    animation: pulse-glow 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.3;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.6;
+    }
+}
+
+/* WiFi waves animation */
+.wifi-wave {
+    position: absolute;
+    border: 3px solid rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    opacity: 0;
+    animation: wave-expand 3s ease-out infinite;
+}
+
+.wifi-wave:nth-child(1) {
+    width: 80px;
+    height: 80px;
+    animation-delay: 0s;
+}
+
+.wifi-wave:nth-child(2) {
+    width: 120px;
+    height: 120px;
+    animation-delay: 0.5s;
+}
+
+.wifi-wave:nth-child(3) {
+    width: 160px;
+    height: 160px;
+    animation-delay: 1s;
+}
+
+.wifi-wave:nth-child(4) {
+    width: 200px;
+    height: 200px;
+    animation-delay: 1.5s;
+}
+
+@keyframes wave-expand {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    20% {
+        opacity: 0.5;
+    }
+    80% {
+        opacity: 0.3;
+    }
+    100% {
+        transform: scale(1.2);
+        opacity: 0;
+    }
+}
+
+/* WiFi icon in center */
+.wifi-icon {
+    position: relative;
+    z-index: 5;
+    width: 110px;
+    height: 110px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(255, 255, 255, 0.3);
+    animation: icon-pulse 3s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(255, 255, 255, 0.3);
+    }
+    50% {
+        transform: scale(1.03);
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3), 0 0 0 6px rgba(255, 255, 255, 0.4);
+    }
+}
+
+.wifi-icon svg {
+    width: 70px;
+    height: 70px;
+}
+
+.wifi-icon-path {
+    animation: wifi-signal 2s ease-in-out infinite;
+}
+
+.wifi-icon-path:nth-child(1) { animation-delay: 0s; }
+.wifi-icon-path:nth-child(2) { animation-delay: 0.3s; }
+.wifi-icon-path:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes wifi-signal {
+    0%, 100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Text content */
+.title {
+    color: white;
+    font-size: 56px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    letter-spacing: -0.5px;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+.subtitle {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 50px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    animation: fadeInUp 0.8s ease-out 0.2s backwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading bar */
+.loading-container {
+    margin-bottom: 30px;
+    animation: fadeInUp 0.8s ease-out 0.4s backwards;
+}
+
+.loading-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.loading-progress {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        rgba(255, 255, 255, 0.8) 0%, 
+        rgba(255, 255, 255, 1) 50%, 
+        rgba(255, 255, 255, 0.8) 100%);
+    border-radius: 10px;
+    animation: loading 2s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+}
+
+@keyframes loading {
+    0% {
+        width: 0%;
+        transform: translateX(0);
+    }
+    50% {
+        width: 70%;
+    }
+    100% {
+        width: 100%;
+        transform: translateX(0);
+    }
+}
+
+.loading-text {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 15px;
+    margin-top: 16px;
+    font-weight: 500;
+}
+
+/* Credits */
+.credits {
+    color: white;
+    font-size: 17px;
+    font-weight: 600;
+    margin-top: 40px;
+    padding: 18px 36px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    display: inline-block;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    animation: fadeInUp 0.8s ease-out 0.6s backwards;
+}
+
+/* Version */
+.version {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 14px;
+    margin-top: 20px;
+    font-weight: 500;
+    animation: fadeInUp 0.8s ease-out 0.8s backwards;
+}
+
+/* Pulsing dots animation for loading text */
+.loading-text::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+/* Network wave animation at bottom */
+.wave-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    overflow: hidden;
+    opacity: 0.15;
+    z-index: 1;
+}
+
+.wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath d='M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z' fill='white'/%3E%3C/svg%3E") repeat-x;
+    animation: wave 10s linear infinite;
+}
+
+.wave:nth-child(2) {
+    bottom: -10px;
+    opacity: 0.5;
+    animation: wave 7s linear infinite reverse;
+}
+
+@keyframes wave {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+</style>
+</head>
+<body>
+    <!-- Animated background particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- Wave animation -->
+    <div class="wave-container">
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+
+    <!-- Main splash content -->
+    <div class="splash-container">
+        <div class="logo-container">
+            <div class="wifi-logo">
+                <!-- Glow ring -->
+                <div class="glow-ring"></div>
+                
+                <!-- Animated WiFi waves -->
+                <div class="wifi-wave"></div>
+                <div class="wifi-wave"></div>
+                <div class="wifi-wave"></div>
+                <div class="wifi-wave"></div>
+                
+                <!-- Center WiFi icon -->
+                <div class="wifi-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path class="wifi-icon-path" d="M2 8.5C5.5 5 10.5 3 16 3C21.5 3 26.5 5 30 8.5" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" transform="translate(-4, 2)"/>
+                        <path class="wifi-icon-path" d="M5 13C7.5 10.5 10.5 9 14 9C17.5 9 20.5 10.5 23 13" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" transform="translate(-2, 0)"/>
+                        <path class="wifi-icon-path" d="M9 17C10.5 15.5 12 15 14 15C16 15 17.5 15.5 19 17" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" transform="translate(-2, 0)"/>
+                        <circle class="wifi-icon-path" cx="12" cy="20" r="1.8" fill="#0EA5E9"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <h1 class="title">BandwidthPro</h1>
+        <p class="subtitle">Advanced Hotspot & Bandwidth Management</p>
+
+        <div class="loading-container">
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+            <p class="loading-text">Initializing system</p>
+        </div>
+
+        <div class="credits">
+            💻 Made by Kavya & Mayank ✨
+        </div>
+
+        <p class="version">Version 1.0.0</p>
+    </div>
+</body>
+</html>
