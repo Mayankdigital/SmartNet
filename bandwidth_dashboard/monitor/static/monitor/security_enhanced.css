@@ -1,0 +1,733 @@
+/* Enhanced Security Page Styles - Maintaining Original Theme */
+
+/* --- ADDED ANIMATION --- */
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+    }
+}
+
+/* Security Hero Section */
+.security-hero {
+    background: var(--gradient-primary);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    margin-bottom: 32px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(14, 165, 233, 0.3);
+}
+
+.security-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: float 6s ease-in-out infinite;
+}
+
+.security-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -5%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    animation: float 8s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+.security-hero-content {
+    position: relative;
+    z-index: 1;
+}
+
+.security-hero h1 {
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.security-hero-icon {
+    width: 56px;
+    height: 56px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.security-hero p {
+    font-size: 16px;
+    opacity: 0.95;
+    line-height: 1.6;
+    margin-left: 72px;
+}
+
+.security-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+}
+
+/* --- MODIFIED STAT BOX --- */
+.security-stat {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    /* background: rgba(255, 255, 255, 0.15); -- REMOVED */
+    padding: 16px 24px;
+    border-radius: var(--radius);
+    backdrop-filter: blur(10px);
+    flex: 1;
+    min-width: 200px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Added subtle border */
+}
+
+/* --- MODIFIED STAT BOX HOVER --- */
+.security-stat:hover {
+    /* background: rgba(255, 255, 255, 0.25); -- REMOVED */
+    transform: translateY(-4px);
+}
+
+/* --- MODIFIED STAT ICON --- */
+.security-stat-icon {
+    width: 48px;
+    height: 48px;
+    /* background: rgba(255, 255, 255, 0.25); -- REMOVED */
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white; /* Default color, will be overridden below */
+}
+
+/* --- ADDED STAT BOX COLORS --- */
+/* Blocked Devices (1st) */
+.security-stat:nth-child(1) {
+    background: rgba(239, 68, 68, 0.15); /* Reddish tint */
+}
+.security-stat:nth-child(1) .security-stat-icon {
+    background: rgba(239, 68, 68, 0.25);
+    color: #f87171; /* Lighter red for icon */
+}
+.security-stat:nth-child(1):hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Blocked IPs (2nd) */
+.security-stat:nth-child(2) {
+    background: rgba(249, 115, 22, 0.15); /* Orange-ish tint */
+}
+.security-stat:nth-child(2) .security-stat-icon {
+    background: rgba(249, 115, 22, 0.25);
+    color: #fbbf24; /* Lighter orange for icon */
+}
+.security-stat:nth-child(2):hover {
+    background: rgba(249, 115, 22, 0.3);
+    border-color: rgba(249, 115, 22, 0.4);
+}
+
+/* Client Isolation (3rd) */
+.security-stat:nth-child(3) {
+    background: rgba(59, 130, 246, 0.15); /* Bluish tint */
+}
+.security-stat:nth-child(3) .security-stat-icon {
+    background: rgba(59, 130, 246, 0.25);
+    color: #93c5fd; /* Lighter blue for icon */
+}
+.security-stat:nth-child(3):hover {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* Animation for active isolation */
+.security-stat:nth-child(3).is-active {
+    animation: pulse-glow 2s ease-in-out infinite;
+    border-color: rgba(59, 130, 246, 0.5);
+}
+/* --- END OF STAT BOX CHANGES --- */
+
+
+.security-stat-info h4 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1;
+}
+
+.security-stat-info p {
+    font-size: 13px;
+    margin: 4px 0 0 0;
+    opacity: 0.9;
+    font-weight: 500;
+}
+
+/* Enhanced Feature Cards */
+.feature-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    border: 1px solid var(--border);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-primary);
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+    transform-origin: left;
+}
+
+.feature-card:hover::before {
+    transform: scaleX(1);
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 16px 40px var(--shadow-xl);
+    border-color: var(--primary-light);
+}
+
+.feature-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.feature-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.feature-icon {
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(14, 165, 233, 0.05));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-icon {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3);
+}
+
+.feature-title h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.feature-description {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-top: 12px;
+}
+
+/* IP Block Section */
+.ip-block-section {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    border: 1px solid var(--border);
+    margin-bottom: 32px;
+    transition: all 0.3s ease;
+}
+
+.ip-block-section:hover {
+    border-color: var(--danger);
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
+}
+
+.ip-block-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.ip-block-icon {
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--danger);
+    flex-shrink: 0;
+}
+
+.ip-block-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.ip-block-description {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+    border-left: 4px solid var(--danger);
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.ip-block-description code {
+    background: rgba(239, 68, 68, 0.1);
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--danger-dark);
+    font-weight: 600;
+}
+
+/* IP Block List Container */
+.ip-block-list-container {
+    background: linear-gradient(135deg, rgba(254, 242, 242, 0.3), rgba(254, 226, 226, 0.1));
+    border-radius: var(--radius);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.ip-block-list-container:hover {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.1);
+}
+
+/* MAC Lists Section */
+.mac-lists-section {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    border: 1px solid var(--border);
+    margin-bottom: 32px;
+}
+
+.mac-lists-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.mac-lists-icon {
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(14, 165, 233, 0.05));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.mac-lists-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+/* Enhanced MAC List Container */
+.mac-list-container {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.mac-list-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.mac-list-container:hover::before {
+    opacity: 1;
+}
+
+.mac-list-container:hover {
+    box-shadow: 0 8px 24px var(--shadow-md);
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+}
+
+.mac-list-container h4 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mac-list-container h4::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--primary);
+    border-radius: 2px;
+}
+
+.mac-list-container p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+/* Enhanced Add Form */
+.mac-add-form {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.mac-add-form input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    font-family: 'Monaco', 'Courier New', monospace;
+    transition: all 0.3s ease;
+}
+
+.mac-add-form input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+    transform: translateY(-2px);
+}
+
+.mac-add-form input::placeholder {
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.mac-add-form .btn-secondary {
+    padding: 12px 24px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Enhanced MAC/IP List Items */
+.mac-list {
+    list-style: none;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 0;
+    margin: 0;
+}
+
+.mac-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.mac-list li:hover {
+    background: var(--bg-hover);
+    transform: translateX(6px);
+    border-color: var(--primary-light);
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.mac-list li span {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mac-list li span::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.btn-remove-mac {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--danger);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.btn-remove-mac:hover {
+    background: var(--danger);
+    color: white;
+    transform: scale(1.15) rotate(90deg);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Enhanced Radio Labels */
+.ac-mode-select {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.radio-label {
+    display: block;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--bg-tertiary);
+    position: relative;
+}
+
+.radio-label:hover {
+    border-color: var(--primary);
+    background: var(--bg-secondary);
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px var(--shadow-md);
+}
+
+.radio-label input[type="radio"] {
+    margin-right: 12px;
+    accent-color: var(--primary);
+    transform: scale(1.1);
+    cursor: pointer;
+}
+
+.radio-label span {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.radio-label small {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    margin-left: 28px;
+}
+
+.radio-label:has(input[type="radio"]:checked) {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.05), rgba(14, 165, 233, 0.02));
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.radio-label:has(input[type="radio"]:checked) span {
+    color: var(--primary);
+}
+
+/* Security Devices Section */
+.security-devices-section {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    border: 1px solid var(--border);
+}
+
+/* --- MODIFIED HEADER (FIXED TITLE) --- */
+.security-devices-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* <-- ADDED THIS TO FIX ALIGNMENT */
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.security-devices-icon {
+    width: 52px;
+    height: 52px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--success);
+    flex-shrink: 0;
+}
+
+.security-devices-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+/* Enhanced Managed Text */
+.managed-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--success);
+    font-style: normal;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.managed-text::before {
+    content: '✓';
+    width: 18px;
+    height: 18px;
+    background: var(--success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* Empty State */
+.mac-list-empty {
+    text-align: center;
+    padding: 32px 16px;
+    font-size: 14px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border: 2px dashed var(--border);
+}
+
+/* Scrollbar for MAC Lists */
+.mac-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mac-list::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+.mac-list::-webkit-scrollbar-thumb {
+    background: var(--primary-light);
+    border-radius: 3px;
+}
+
+.mac-list::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1200px) {
+    .security-stats {
+        gap: 16px;
+    }
+    
+    .security-stat {
+        min-width: 180px;
+    }
+}
+
+@media (max-width: 768px) {
+    .security-hero h1 {
+        font-size: 28px;
+    }
+    
+    .security-hero p {
+        margin-left: 0;
+        margin-top: 12px;
+    }
+    
+    .security-stats {
+        flex-direction: column;
+    }
+    
+    .security-stat {
+        min-width: 100%;
+    }
+    
+    .feature-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+}

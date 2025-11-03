@@ -1,0 +1,773 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bandwidth Manager</title>
+    <link rel="stylesheet" href="{% static 'monitor/style.css' %}">
+    <link rel="stylesheet" href="{% static 'monitor/security_enhanced.css' %}">
+</head>
+<body>
+    <div class="app-container">
+        <header class="top-header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32">
+                        <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <path d="M16 8 L16 16 L22 20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    </svg>
+                    <span>BandwidthPro</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="hotspot-status">
+                    <span class="status-indicator" id="hotspot-indicator"></span>
+                    <span class="status-text" id="hotspot-status-text">Hotspot: OFF</span>
+                </div>
+                <button class="btn btn-settings" onclick="openSettingsModal()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v6m0 6v6m5.66-13.66l-4.24 4.24m0 4.24l4.24 4.24M1 12h6m6 0h6m-13.66 5.66l4.24-4.24m0-4.24l-4.24-4.24"/>
+                    </svg>
+                    Settings
+                </button>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="hotspot-toggle">
+                    <label for="hotspot-toggle" class="toggle-label">
+                        <span class="toggle-button"></span>
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="14" y="14" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="scheduler">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <span>Scheduler</span>
+                </a>
+                <a href="#" class="nav-item" data-page="security">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <span>Security</span>
+                </a>
+                <a href="#" class="nav-item" data-page="ai">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <span>AI Powered</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div id="dashboard-page" class="page active">
+                <header class="page-header">
+                    <h1>Dashboard</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-refresh">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+                </header>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon download">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Download Speed</div>
+                            <div class="stat-value" id="download-speed">0 Mbps</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon upload">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Upload Speed</div>
+                            <div class="stat-value" id="upload-speed">0 Mbps</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon devices">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Connected Devices</div>
+                            <div class="stat-value" id="device-count">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon data">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 20v-6M6 20V10M18 20V4"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Data Usage</div>
+                            <div class="stat-value" id="data-usage">0 GB</div>
+                            <div class="time-selector">
+                                <button class="time-btn" data-time="1h">1H</button>
+                                <button class="time-btn active" data-time="24h">24H</button>
+                                <button class="time-btn" data-time="7d">7D</button>
+                                <button class="time-btn" data-time="31d">31D</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Network Activity</h3>
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="legend-color download"></span> Download</span>
+                                <span class="legend-item"><span class="legend-color upload"></span> Upload</span>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="speedChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Device Distribution</h3>
+                        </div>
+                        <div class="chart-container pie-container">
+                            <canvas id="deviceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="devices-section">
+                    <div class="section-header">
+                        <h2>Connected Devices</h2>
+                        <div class="search-box">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <input type="text" placeholder="Search devices..." id="device-search">
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="devices-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>IP Address</th>
+                                    <th>Hostname</th>
+                                    <th>MAC Address</th>
+                                    <th>Download</th>
+                                    <th>Upload</th>
+                                    <th>Session Data</th>
+                                    <th>Priority</th>
+                                    <th>Actions</th>
+                                    <th>Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devices-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="scheduler-page" class="page">
+                <header class="page-header">
+                    <h1>Bandwidth Scheduler</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openScheduleModal()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            New Schedule
+                        </button>
+                    </div>
+                </header>
+
+                <div class="scheduler-container">
+                    <div class="calendar-header">
+                        <button class="btn-nav" onclick="previousMonth()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                        </button>
+                        <h2 id="calendar-month-year">October 2025</h2>
+                        <button class="btn-nav" onclick="nextMonth()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="calendar-grid">
+                        <div class="calendar-day-header">Sun</div>
+                        <div class="calendar-day-header">Mon</div>
+                        <div class="calendar-day-header">Tue</div>
+                        <div class="calendar-day-header">Wed</div>
+                        <div class="calendar-day-header">Thu</div>
+                        <div class="calendar-day-header">Fri</div>
+                        <div class="calendar-day-header">Sat</div>
+                    </div>
+                    
+                    <div class="calendar-days-container">
+                        <div id="calendar-days" class="calendar-grid">
+                        </div>
+                    </div>
+
+                    <div class="schedules-section">
+                        <div class="section-header">
+                            <h2>Scheduled Rules</h2>
+                            <div class="filter-tabs">
+                                <button class="filter-tab active" data-filter="all">All</button>
+                                <button class="filter-tab" data-filter="limit">Limits</button>
+                                <button class="filter-tab" data-filter="quota">Quotas</button>
+                                <button class="filter-tab" data-filter="active">Active</button>
+                            </div>
+                        </div>
+                        <div id="schedules-list" class="schedules-list">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="security-page" class="page">
+                <div class="security-hero">
+                    <div class="security-hero-content">
+                        <h1>
+                            <div class="security-hero-icon">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                </svg>
+                            </div>
+                            Access Control & Security
+                        </h1>
+                        <p>Protect your network with advanced security features and access controls</p>
+                        <div class="security-stats">
+                            <div class="security-stat">
+                                <div class="security-stat-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                                    </svg>
+                                </div>
+                                <div class="security-stat-info">
+                                    <h4 id="blocked-devices-count">0</h4>
+                                    <p>Blocked Devices</p>
+                                </div>
+                            </div>
+                            <div class="security-stat">
+                                <div class="security-stat-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                    </svg>
+                                </div>
+                                <div class="security-stat-info">
+                                    <h4 id="blocked-ips-count">0</h4>
+                                    <p>Blocked IPs</p>
+                                </div>
+                            </div>
+                            <div class="security-stat">
+                                <div class="security-stat-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="8.5" cy="7" r="4"></circle>
+                                        <line x1="23" y1="11" x2="17" y2="11"></line>
+                                    </svg>
+                                </div>
+                                <div class="security-stat-info">
+                                    <h4 id="isolation-status">OFF</h4>
+                                    <p>Client Isolation</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="security-grid">
+                    <div class="feature-card">
+                        <div class="feature-header">
+                            <div class="feature-title">
+                                <div class="feature-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="8.5" cy="7" r="4"></circle>
+                                        <line x1="23" y1="11" x2="17" y2="11"></line>
+                                    </svg>
+                                </div>
+                                <h3>Client Isolation</h3>
+                            </div>
+                            <div class="toggle-switch large-toggle">
+                                <input type="checkbox" id="client-isolation-toggle">
+                                <label for="client-isolation-toggle" class="toggle-label">
+                                    <span class="toggle-button"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <p class="feature-description">
+                            When enabled, connected devices cannot see or communicate with each other. Highly recommended for guest or public networks to prevent unauthorized access between devices.
+                        </p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-header">
+                            <div class="feature-title">
+                                <div class="feature-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                </div>
+                                <h3>MAC Access Control</h3>
+                            </div>
+                        </div>
+                        <p class="feature-description">
+                            Control which devices can connect to your network based on their MAC addresses.
+                        </p>
+                        <div class="ac-mode-select">
+                            <label class="radio-label">
+                                <input type="radio" name="ac-mode" id="ac-mode-allow_all" value="allow_all" checked>
+                                <span>Allow All (Default)</span>
+                                <small>All devices can connect freely.</small>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ac-mode" id="ac-mode-block_list" value="block_list">
+                                <span>Block List (Blacklist)</span>
+                                <small>Block specific devices. All others are allowed.</small>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ac-mode" id="ac-mode-allow_list" value="allow_list">
+                                <span>Allow List (Whitelist)</span>
+                                <small>Only allow specific devices. All others are blocked.</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ip-block-section">
+                    <div class="ip-block-header">
+                        <div class="ip-block-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                            </svg>
+                        </div>
+                        <h2>IP/Service Block List</h2>
+                    </div>
+                    <div class="ip-block-description">
+                        Block access to specific external IPs, domains, or services. Use an IP address (e.g., <code>1.1.1.1</code>) or CIDR notation for ranges (e.g., <code>142.250.0.0/15</code> for Google/YouTube). Perfect for parental controls or blocking distracting websites.
+                    </div>
+                    <div class="ip-block-list-container">
+                        <form class="mac-add-form" id="add-ip-block-form">
+                            <input type="text" id="ip-block-input" placeholder="Enter IP or CIDR (e.g., 1.1.1.1 or 142.250.0.0/15)">
+                            <button type="submit" class="btn btn-secondary">Block</button>
+                        </form>
+                        <ul class="mac-list" id="ip-block-list-ul">
+                            <li class="mac-list-empty">No IPs or ranges are blocked.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mac-lists-section">
+                    <div class="mac-lists-header">
+                        <div class="mac-lists-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                                <line x1="4" y1="22" x2="4" y2="15"></line>
+                            </svg>
+                        </div>
+                        <h2>Manage Access Lists</h2>
+                    </div>
+                    <div class="mac-lists-grid">
+                        <div class="mac-list-container">
+                            <h4>Block List</h4>
+                            <p>Devices on this list will be blocked if "Block List" mode is active.</p>
+                            <form class="mac-add-form" id="add-block-mac-form">
+                                <input type="text" id="block-mac-input" placeholder="AA:BB:CC:11:22:33" pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$">
+                                <button type="submit" class="btn btn-secondary">Add</button>
+                            </form>
+                            <ul class="mac-list" id="block-list-ul">
+                                <li class="mac-list-empty">This list is empty.</li>
+                            </ul>
+                        </div>
+                        <div class="mac-list-container">
+                            <h4>Allow List</h4>
+                            <p>Only devices on this list will connect if "Allow List" mode is active.</p>
+                            <form class="mac-add-form" id="add-allow-mac-form">
+                                <input type="text" id="allow-mac-input" placeholder="AA:BB:CC:11:22:33" pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$">
+                                <button type="submit" class="btn btn-secondary">Add</button>
+                            </form>
+                            <ul class="mac-list" id="allow-list-ul">
+                                <li class="mac-list-empty">This list is empty.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="security-devices-section devices-section">
+                    <div class="security-devices-header section-header">
+                        <div class="security-devices-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                        </div>
+                        <h2>Add from Connected Devices</h2>
+                    </div>
+                    <div class="table-container">
+                        <table class="devices-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Hostname</th>
+                                    <th>IP Address</th>
+                                    <th>MAC Address</th>
+                                    <th>Add to List</th>
+                                </tr>
+                            </thead>
+                            <tbody id="security-device-list-tbody">
+                                <tr>
+                                    <td colspan="5" class="no-data-cell">No devices connected.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ai-page" class="page">
+                <header class="page-header">
+                    <h1>AI Powered Forecast</h1>
+                </header>
+                
+                <div class="charts-grid">
+                    <div class="chart-card chart-card-full-width"> 
+                        <div class="chart-header">
+                            <h3>Usage Forecast (Next 24h)</h3>
+                             <div class="chart-legend">
+                                 <span class="legend-item"><span class="legend-color" style="background-color: #FF6B35;"></span> Predicted Avg.</span>
+                                 <span class="legend-item"><span class="legend-color" style="background-color: rgba(255, 107, 53, 0.1); border: 1px solid rgba(255, 107, 53, 0.2);"></span> Confidence Range</span>
+                             </div>
+                        </div>
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="forecastChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="devices-section">
+                     <div class="section-header">
+                        <h2>Adaptive Management</h2>
+                    </div>
+                    <p class="card-description" style="padding: 20px; background: var(--bg-secondary); border-radius: 12px; line-height: 1.6;">
+                        This forecast is used by the system to perform <strong>Adaptive Management</strong>. 
+                        When the AI predicts high network congestion (e.g., usage > 85% of your total bandwidth), it will automatically apply a "Fair Use" throttle (a low-priority 1 Mbps limit) to all unmanaged devices. 
+                        This ensures the network remains stable during peak times without you needing to manually set limits. The throttle is automatically removed when congestion is predicted to be low.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="hotspotSettingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Hotspot Settings</h3>
+                <button class="modal-close" onclick="closeModal('hotspotSettingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-message" style="display: none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>Please turn OFF the hotspot before changing settings</span>
+                </div>
+                <div class="form-group">
+                    <label>SSID (Network Name)</label>
+                    <input type="text" id="ssid-input" placeholder="MyBandwidthManager">
+                </div>
+                <div class="form-group">
+                    <label>Password (8-63 characters)</label>
+                    <div class="password-input-group">
+                        <input type="password" id="password-input" placeholder="Enter password">
+                        <button class="toggle-password" onclick="togglePasswordVisibility()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="current-settings">
+                    <h4>Current Settings:</h4>
+                    <div class="setting-item">
+                        <span class="setting-label">SSID:</span>
+                        <span class="setting-value" id="current-ssid">MyBandwidthManager</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Password:</span>
+                        <span class="setting-value">••••••••</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('hotspotSettingsModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="applyHotspotSettings()">Apply Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="limitModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Set Bandwidth Limit</h3>
+                <button class="modal-close" onclick="closeModal('limitModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Download Limit (Kbps)</label>
+                    <input type="number" id="limit-download" placeholder="1024">
+                </div>
+                <div class="form-group">
+                    <label>Upload Limit (Kbps)</label>
+                    <input type="number" id="limit-upload" placeholder="512">
+                </div>
+                <div class="form-group">
+                    <label>Priority (0=High, 7=Low)</label>
+                    <input type="number" id="limit-priority" min="0" max="7" value="5">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('limitModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="applyLimit()">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="quotaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Set Data Quota</h3>
+                <button class="modal-close" onclick="closeModal('quotaModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Download Quota (MB)</label>
+                    <input type="number" id="quota-download" placeholder="1000">
+                </div>
+                <div class="form-group">
+                    <label>Upload Quota (MB)</label>
+                    <input type="number" id="quota-upload" placeholder="500">
+                </div>
+                <div class="form-group">
+                    <label>Time Period (e.g., 1h, 7d, 30m)</label>
+                    <input type="text" id="quota-period" placeholder="24h">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('quotaModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="applyQuota()">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scheduleModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="schedule-modal-title">Create Schedule</h3>
+                <button class="modal-close" onclick="closeModal('scheduleModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rule Name</label>
+                        <input type="text" id="schedule-name" placeholder="Evening bandwidth limit">
+                    </div>
+                    <div class="form-group">
+                        <label>Rule Type</label>
+                        <select id="schedule-type">
+                            <option value="limit">Bandwidth Limit</option>
+                            <option value="quota">Data Quota</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Device</label>
+                    <select id="schedule-device">
+                        <option value="">Select a device...</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="schedule-start-date">
+                    </div>
+                    <div class="form-group">
+                        <label>End Date (Optional)</label>
+                        <input type="date" id="schedule-end-date">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Time</label>
+                        <input type="time" id="schedule-start-time" value="00:00">
+                    </div>
+                    <div class="form-group">
+                        <label>End Time</label>
+                        <input type="time" id="schedule-end-time" value="23:59">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Repeat</label>
+                    <div class="repeat-options">
+                        <button class="repeat-btn active" data-repeat="once">Once</button>
+                        <button class="repeat-btn" data-repeat="daily">Daily</button>
+                        <button class="repeat-btn" data-repeat="weekdays">Weekdays</button>
+                        <button class="repeat-btn" data-repeat="weekends">Weekends</button>
+                        <button class="repeat-btn" data-repeat="custom">Custom</button>
+                    </div>
+                </div>
+
+                <div id="custom-days-container" class="form-group" style="display: none;">
+                    <label>Select Days</label>
+                    <div class="days-selector">
+                        <label class="day-checkbox"><input type="checkbox" value="0"> Sun</label>
+                        <label class="day-checkbox"><input type="checkbox" value="1"> Mon</label>
+                        <label class="day-checkbox"><input type="checkbox" value="2"> Tue</label>
+                        <label class="day-checkbox"><input type="checkbox" value="3"> Wed</label>
+                        <label class="day-checkbox"><input type="checkbox" value="4"> Thu</label>
+                        <label class="day-checkbox"><input type="checkbox" value="5"> Fri</label>
+                        <label class="day-checkbox"><input type="checkbox" value="6"> Sat</label>
+                    </div>
+                </div>
+
+                <div id="limit-fields" class="schedule-fields">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Download Limit (Kbps)</label>
+                            <input type="number" id="schedule-limit-download" placeholder="1024">
+                        </div>
+                        <div class="form-group">
+                            <label>Upload Limit (Kbps)</label>
+                            <input type="number" id="schedule-limit-upload" placeholder="512">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority (0=High, 7=Low)</label>
+                        <input type="number" id="schedule-limit-priority" min="0" max="7" value="5">
+                    </div>
+                </div>
+
+                <div id="quota-fields" class="schedule-fields" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Download Quota (MB)</label>
+                            <input type="number" id="schedule-quota-download" placeholder="1000">
+                        </div>
+                        <div class="form-group">
+                            <label>Upload Quota (MB)</label>
+                            <input type="number" id="schedule-quota-upload" placeholder="500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="schedule-enabled" checked>
+                        <span>Enable this schedule</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('scheduleModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSchedule()">Save Schedule</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="{% static 'monitor/script.js' %}"></script>
+    
+    <script>
+        // Update security stats dynamically
+        function updateSecurityStats() {
+            const blockedDevices = currentSecurityState.blockList?.length || 0;
+            const blockedIPs = currentSecurityState.ipBlockList?.length || 0;
+            const isolationOn = currentSecurityState.isolation;
+            
+            const blockedDevicesEl = document.getElementById('blocked-devices-count');
+            const blockedIPsEl = document.getElementById('blocked-ips-count');
+            const isolationStatusEl = document.getElementById('isolation-status');
+
+            // Find the parent .security-stat for the isolation status
+            const isolationStatBox = isolationStatusEl ? isolationStatusEl.closest('.security-stat') : null;
+            
+            if (blockedDevicesEl) blockedDevicesEl.textContent = blockedDevices;
+            if (blockedIPsEl) blockedIPsEl.textContent = blockedIPs;
+            
+            if (isolationStatusEl) {
+                isolationStatusEl.textContent = isolationOn ? 'ON' : 'OFF';
+
+                // Add/remove class for animation
+                if (isolationStatBox) {
+                    if (isolationOn) {
+                        isolationStatBox.classList.add('is-active');
+                    } else {
+                        isolationStatBox.classList.remove('is-active');
+                    }
+                }
+            }
+        }
+        
+        // Call this whenever security state updates
+        const originalRenderSecurityPage = renderSecurityPage;
+        renderSecurityPage = function(state) {
+            originalRenderSecurityPage(state);
+            updateSecurityStats();
+        };
+    </script>
+</body>
+</html>
